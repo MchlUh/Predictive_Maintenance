@@ -3,20 +3,24 @@ import numpy as np
 
 from statsmodels.graphics.correlation import plot_corr
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import MinMaxScaler
 
+def plot_engine_signals(engine_id, df, signals, scale_signals=True):
+    if scale_signals:
+        scaler = MinMaxScaler()
+        df.loc[:, signals] = scaler.fit_transform(df.loc[:, signals])
 
-def plot_engine_signals(engine_id, df, signals):
     if 'time_to_failure' in df.columns:
-        [plt.plot(df.loc[df.id == engine_id, "time_to_failure"],
-                  df.loc[df.id == engine_id, signal]) for signal in signals]
+        [plt.plot(df.loc[engine_id, "time_to_failure"],
+                  df.loc[engine_id, signal]) for signal in signals]
         plt.xlabel('Remaining Useful Life')
         plt.xlim(0, 200)
         ax = plt.gca()
         ax.set_xlim(ax.get_xlim()[::-1])  # Reverse x axis (time to failure ends at 0)
 
     else:
-        [plt.plot(df.loc[df.id == engine_id, "time"],
-                  df.loc[df.id == engine_id, signal]) for signal in signals]
+        [plt.plot(df.loc[engine_id, "time"],
+                  df.loc[engine_id, signal]) for signal in signals]
         plt.xlabel('Time')
 
     plt.title("Evolution of {n_signals} for engine {engine_id}".format(
@@ -27,7 +31,7 @@ def plot_engine_signals(engine_id, df, signals):
 
 def plot_superposed_engine_signals(engine_ids, df, signals):
     for signal in signals:
-        [plt.plot(df.loc[df.id == engine_id, "time_to_failure"], df.loc[df.id == engine_id, signal], linewidth=.4)
+        [plt.plot(df.loc[engine_id, "time_to_failure"], df.loc[engine_id, signal], linewidth=.4)
          for engine_id in engine_ids]
         plt.xlabel('Remaining Useful Life')
         plt.ylabel(signal)

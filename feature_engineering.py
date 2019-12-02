@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 
 
-def feature_engineer(train, test, sensors, functions, silent=True):
+def feature_engineer(train, test, sensors, functions, silent=True, drop_na=True):
     """
     :param train: indexed training dataset by engine_id
     :param test: indexed testing dataset by engine_id
@@ -15,10 +15,14 @@ def feature_engineer(train, test, sensors, functions, silent=True):
                             lag: {'n_lag': 10},
                             time_reversal_asymmetry: {'rolling_window_length': 20, 'n_lag': 5}
                             }
+    :param silent: print along feature engineering evolution
+    :param drop_na: drop rows containing NaN values after rolling window and shift operations
     :return: transformed training set and transformed testing set
     """
     train = train.copy()
     test = test.copy()
+    if not silent:
+        print('Applying feature engineering to training and testing sets')
     for frame in (train, test):
         for func, params in functions.items():
             if not silent:
@@ -26,7 +30,9 @@ def feature_engineer(train, test, sensors, functions, silent=True):
             for sensor in sensors:
                 new_column, column_name = func(signal=frame[sensor], **params)
                 frame[column_name] = new_column
-    return train, test
+    if not drop_na:
+        return train, test
+    return train.dropna(), test.dropna()
 
 
 def lag(signal, n_lag):
