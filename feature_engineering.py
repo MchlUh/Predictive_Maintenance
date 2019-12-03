@@ -177,6 +177,99 @@ def rolling_abs_sum_of_changes(signal, time_window_length):
     return signal, name
 
 
+#### TODO: SCALE VARIABLES BEFORE COMPUTING GREEKS (i.e. Vega, Theta, etc.)
+
+def diff_signal(signal, n_lag):
+    """
+    :param signal: sensor signal
+    :param n_lag: lag to apply to the signal
+    :return: change in signal (value)
+    """
+    for engine_id in set(signal.index):
+        signal.loc[engine_id] = signal.loc[engine_id].diff(periods=n_lag)
+    name = '{signal}_diff_lag_{n_lag}'.format(signal=signal.name, n_lag=n_lag)
+    return signal, name
+
+
+def log(signal):
+    """
+    :param signal: sensor signal series
+    :return: log of signal (for exponential smoothing)
+    """
+    return np.log(signal)
+
+
+def delta_signal(signal, n_lag):
+    """
+    :param signal: sensor signal
+    :param n_lag: lag to apply to the signal
+    :return: 1st order derivative : rate of change of signal (% change)
+    """
+    for engine_id in set(signal.index):
+        signal.loc[engine_id] = signal.loc[engine_id].pct_change(periods=n_lag)
+    name = '{signal}_delta_lag_{n_lag}'.format(signal=signal.name, n_lag=n_lag)
+    return signal, name
+
+
+def gamma_signal(signal, n_lag):
+    """
+    :param signal: sensor signal
+    :param n_lag: lag to apply to the signal
+    :return: 2nd order derivative: acceleration of change of signal
+    """
+    for engine_id in set(signal.index):
+        signal.loc[engine_id] = signal.loc[engine_id].pct_change(periods=n_lag)
+        signal.loc[engine_id] = signal.loc[engine_id].pct_change(periods=n_lag)
+    name = '{signal}_delta_lag_{n_lag}'.format(signal=signal.name, n_lag=n_lag)
+    return signal, name
+
+
+def theta_signal(signal):
+    """
+    :param signal: sensor signal
+    :param n_lag: lag to apply to the signal
+    :return: list of change in signal wrt to max remaining life for the signal
+    """
+    ### TODO: implement a loop with a decreasing remaining life value
+    remaining_life = signal.max()
+    L=[]
+    for engine_id in set(signal.index):
+        signal.loc[engine_id] = signal.loc[engine_id].pct_change(periods=n_lag)
+    for engine_id in set(signal.index):
+        for row in signal.loc[engine_id]: # Doesn't seem like the right way to write it?
+            L.append(row/remaining_life)
+            remaining_life -= 1
+    name = '{signal}_theta_lag_{n_lag}'.format(signal=signal.name, n_lag=n_lag)
+    return L, name
+
+
+def vega_signal(signal,n_lag):
+    """
+    :param signal: sensor signal
+    :param n_lag: lag to apply to the signal
+    :return: change in signal wrt to volatility (variance)
+    """
+    ### Need to work on this one some more
+    ### TODO: compute the change in volatility: what's the equivalent to implied vol here? should I use a rolling window?
+    for engine_id in set(signal.index):
+        nomin = signal.loc[engine_id].pct_change(periods=n_lag)
+    denom = rolling_variance(signal,n_lag)
+    name = '{signal}_vega_lag_{n_lag}'.format(signal=signal.name, n_lag=n_lag)
+    return nomin/denom, name
+
+
+def charm_signal(signal):
+    """
+    :param signal: sensor signal
+    :param n_lag: lag to apply to the signal
+    :return: delta decay = instantaneous rate of change of delta over the passage of time
+    """
+    ### TODO: compute the change in volatility: what's the equivalent to implied vol here? should I use a rolling window?
+    for engine_id in set(signal.index):
+
+    name = '{signal}_charm_lag_{n_lag}'.format(signal=signal.name, n_lag=n_lag)
+    return signal, name
+
 
 if __name__ == '__main__':
     df = pd.read_csv("CMAPSSData/CMAPSSData/train_FD001.txt", delimiter=" ", index_col=None, header=None)
@@ -207,4 +300,32 @@ if __name__ == '__main__':
         print('All function passed the test')
     else:
         print('{} functions failed : {}'.format(len(failed_functions), failed_functions))
+
+
+def feature_engineer(train, test, sensors, functions, silent=True):
+    """
+    :param train: indexed training dataset by engine_id
+    :param test: indexed testing dataset by engine_id
+    :param sensors: frame columns to apply feature engineering to
+    :param functions: Dict of feature engineering functions as keys
+                      with dictionary of parameters as value.
+                      The functions take a pandas Series indexed by engine id as input
+                      and outputs a transformed pandas Series
+                      ex : {
+                            lag: {'n_lag': 10},
+                            time_reversal_asymmetry: {'rolling_window_length': 20, 'n_lag': 5}
+                            }
+    :return: transformed training set and transformed testing set
+    """
+    train = train.copy()
+    test = test.copy()
+    for frame in (train, test):
+        for func, params in functions.items():
+            if not silent:
+                print('Applying {}...'.format(func.__name__))
+            for sensor in sensors:
+                new_column, column_name = func(signal=frame[sensor], **params)
+                frame[column_name] = new_column
+    return train, test
+
 
