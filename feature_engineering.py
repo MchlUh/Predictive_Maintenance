@@ -220,7 +220,7 @@ def gamma_signal(signal, n_lag):
     for engine_id in set(signal.index):
         signal.loc[engine_id] = signal.loc[engine_id].pct_change(periods=n_lag)
         signal.loc[engine_id] = signal.loc[engine_id].pct_change(periods=n_lag)
-    name = '{signal}_delta_lag_{n_lag}'.format(signal=signal.name, n_lag=n_lag)
+    name = '{signal}_gamma_lag_{n_lag}'.format(signal=signal.name, n_lag=n_lag)
     return signal, name
 
 
