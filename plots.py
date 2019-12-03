@@ -102,4 +102,3 @@ def plot_error_repartition(y_true, y_pred):
     plt.plot(list(errors.keys()), list(map(np.mean, errors.values())))
     plt.title("Error repartition")
     plt.show()
-
