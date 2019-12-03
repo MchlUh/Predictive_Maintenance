@@ -49,3 +49,4 @@ def denoise(train, test, sensor_columns, lamb=1600):
             _, test.loc[engine_id, sensor] = \
                 hp_filter.hpfilter(test.loc[engine_id, sensor], lamb)
     return train, test
+

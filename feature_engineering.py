@@ -36,20 +36,6 @@ def feature_engineer(train, test, sensors, functions, silent=True, drop_na=True)
     return train.dropna(), test.dropna()
 
 
-def lag(signal, n_lag):
-    """
-    :param signal: sensor signal
-    :param n_lag: lag to apply to the signal
-    :return: Lagged signal
-    """
-    signal = signal.copy()
-    for engine_id in set(signal.index):
-        signal.loc[engine_id] = signal.loc[engine_id].shift(n_lag)
-
-    name = '{signal}_lag_{n_lag}'.format(signal=signal.name, n_lag=n_lag)
-    return signal, name
-
-
 def rolling_mean(signal, time_window_length):
     """
     :param signal: sensor signal
@@ -178,7 +164,6 @@ def rolling_abs_sum_of_changes(signal, time_window_length):
 
 
 #### TODO: SCALE VARIABLES BEFORE COMPUTING GREEKS (i.e. Vega, Theta, etc.)
-
 def diff_signal(signal, n_lag):
     """
     :param signal: sensor signal
@@ -196,7 +181,9 @@ def log(signal):
     :param signal: sensor signal series
     :return: log of signal (for exponential smoothing)
     """
-    return np.log(signal)
+    name = '{signal}_log'.format(signal=signal.name)
+
+    return pd.Series(np.log(signal)), name
 
 
 def delta_signal(signal, n_lag):
@@ -224,7 +211,7 @@ def gamma_signal(signal, n_lag):
     return signal, name
 
 
-def theta_signal(signal):
+def theta_signal(signal, n_lag):
     """
     :param signal: sensor signal
     :param n_lag: lag to apply to the signal
@@ -244,7 +231,7 @@ def theta_signal(signal):
     return L, name
 
 
-def vega_signal(signal,n_lag):
+def vega_signal(signal, n_lag):
     """
     :param signal: sensor signal
     :param n_lag: lag to apply to the signal
@@ -259,7 +246,7 @@ def vega_signal(signal,n_lag):
     return nomin/denom, name
 
 
-def charm_signal(signal):
+def charm_signal(signal, n_lag):
     """
     :param signal: sensor signal
     :param n_lag: lag to apply to the signal
@@ -267,7 +254,7 @@ def charm_signal(signal):
     """
     ### TODO: compute the change in volatility: what's the equivalent to implied vol here? should I use a rolling window?
     for engine_id in set(signal.index):
-
+        print('')
     name = '{signal}_charm_lag_{n_lag}'.format(signal=signal.name, n_lag=n_lag)
     return signal, name
 
@@ -280,7 +267,6 @@ if __name__ == '__main__':
 
     print('Running unit tests for feature engineering functions')
     feature_engineering_functions = [
-        (lag, {'n_lag': 10}),
         (rolling_mean, {'time_window_length': 20}),
         (mean_derivative, {'time_window_length': 20}),
         (rolling_max, {'time_window_length': 20}),
@@ -288,11 +274,17 @@ if __name__ == '__main__':
         (rolling_abs_energy, {'time_window_length': 20}),
         (rolling_abs_sum_of_changes, {'time_window_length': 20}),
         (rolling_variance, {'time_window_length': 20}),
-        (time_reversal_asymmetry, {'time_window_length': 10, 'n_lag': 2})
+        (time_reversal_asymmetry, {'time_window_length': 20, 'n_lag': 5}),
+        (log, {}),
+        (diff_signal, {'n_lag': 20}),
+        (delta_signal, {'n_lag': 20}),
+        (gamma_signal, {'n_lag': 20}),
+        (theta_signal, {'n_lag': 20}),
+        (vega_signal, {'n_lag': 20})
     ]
     failed_functions = []
     for func, params in feature_engineering_functions:
-        try :
+        try:
             col, name = func(test_signal, **params)
         except Exception as e:
             print('FAILED {}'.format(func.__name__))
@@ -301,32 +293,3 @@ if __name__ == '__main__':
         print('All function passed the test')
     else:
         print('{} functions failed : {}'.format(len(failed_functions), failed_functions))
-
-
-def feature_engineer(train, test, sensors, functions, silent=True):
-    """
-    :param train: indexed training dataset by engine_id
-    :param test: indexed testing dataset by engine_id
-    :param sensors: frame columns to apply feature engineering to
-    :param functions: Dict of feature engineering functions as keys
-                      with dictionary of parameters as value.
-                      The functions take a pandas Series indexed by engine id as input
-                      and outputs a transformed pandas Series
-                      ex : {
-                            lag: {'n_lag': 10},
-                            time_reversal_asymmetry: {'rolling_window_length': 20, 'n_lag': 5}
-                            }
-    :return: transformed training set and transformed testing set
-    """
-    train = train.copy()
-    test = test.copy()
-    for frame in (train, test):
-        for func, params in functions.items():
-            if not silent:
-                print('Applying {}...'.format(func.__name__))
-            for sensor in sensors:
-                new_column, column_name = func(signal=frame[sensor], **params)
-                frame[column_name] = new_column
-    return train, test
-
-
