@@ -239,6 +239,7 @@ def theta_signal(signal):
         for row in signal.loc[engine_id]: # Doesn't seem like the right way to write it?
             L.append(row/remaining_life)
             remaining_life -= 1
+        remaining_life = signal.max()
     name = '{signal}_theta_lag_{n_lag}'.format(signal=signal.name, n_lag=n_lag)
     return L, name
 
