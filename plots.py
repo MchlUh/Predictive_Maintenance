@@ -1,11 +1,15 @@
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import axes3d, Axes3D
 import numpy as np
+from collections import OrderedDict
 
 from statsmodels.graphics.correlation import plot_corr
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler
 
+
 def plot_engine_signals(engine_id, df, signals, scale_signals=True):
+    df = df.copy()
     if scale_signals:
         scaler = MinMaxScaler()
         df.loc[:, signals] = scaler.fit_transform(df.loc[:, signals])
@@ -23,7 +27,7 @@ def plot_engine_signals(engine_id, df, signals, scale_signals=True):
                   df.loc[engine_id, signal]) for signal in signals]
         plt.xlabel('Time')
 
-    plt.title("Evolution of {n_signals} for engine {engine_id}".format(
+    plt.title("Evolution of {n_signals} signals for engine {engine_id}".format(
         n_signals=len(signals), engine_id=engine_id)
     )
     plt.show()
@@ -88,3 +92,14 @@ def plot_3d_lifetime_paths(train):
     fig.set_zlim3d(0, 250)
     fig.set_title("Engines lifetime paths")
     plt.show()
+
+
+def plot_error_repartition(y_true, y_pred):
+    errors = OrderedDict.fromkeys(sorted(set(y_true)))
+    for i in set(y_true):
+        errors[i] = []
+    [errors[true].append(np.abs(pred-true)) for true, pred in zip(y_true, y_pred)]
+    plt.plot(list(errors.keys()), list(map(np.mean, errors.values())))
+    plt.title("Error repartition")
+    plt.show()
+

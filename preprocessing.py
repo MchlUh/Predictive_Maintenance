@@ -4,11 +4,6 @@ from sklearn.feature_selection import variance_threshold
 from statsmodels.tsa.filters import hp_filter
 
 
-# Drop constant columns providing no information
-# The fitting is done on train dataset. The exact same operation is performed on the test data
-# Notice that no "training" will ever be performed on test dataset
-# Only the same "transform" operations that were learned on training dataset will be performed on test data
-# This should be respected in production.
 def drop_constant_signals(train, test, cols, threshold=0.005):
     var = variance_threshold.VarianceThreshold(threshold)
     train = pd.DataFrame(var.fit_transform(train), index=train.index)
@@ -46,7 +41,6 @@ def generate_labels(train, test, test_label_file_name):
 
 
 def denoise(train, test, sensor_columns, lamb=1600):
-    # De-noise signals with Hodrick-Prescott filter
     for sensor in sensor_columns:
         for engine_id in set(train.index):
             _, train.loc[engine_id, sensor] = \
