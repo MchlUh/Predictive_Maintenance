@@ -6,7 +6,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import RandomizedSearchCV
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import SelectKBest, RFECV, RFE
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import xgboost as xgb
@@ -56,7 +56,7 @@ n_pc_components = 2
 pc_columns = ['PC{}'.format(i+1) for i in range(n_pc_components)]
 
 # Perform PCA
-# scaler = MinMaxScaler()
+# scaler = StandardScaler()
 # scaler.fit(train_df[filtered_signals])
 # train_df[filtered_signals] = scaler.transform(train_df[filtered_signals])
 # test_df[filtered_signals] = scaler.transform(test_df[filtered_signals])
@@ -127,7 +127,7 @@ if recursive_feature_elimination:
     selected_features = [X.columns[i] for i in range(X.shape[1]) if rfe.get_support()[i]]
     print('selected features :', selected_features)
 
-pipe = Pipeline(steps=[('scaler', MinMaxScaler()),
+pipe = Pipeline(steps=[('scaler', StandardScaler()),
                        #('rfe', RFE(xgb.XGBRegressor(max_depth=6))),
                        ('xgb', xgb.XGBRegressor())])
 
@@ -137,11 +137,12 @@ param_grid = {
     'xgb__max_depth': range(2, 4)
 }
 
+
 splits = split_engines_for_cv(train_df, 5)  # TODO: feed splits to CV (félix)
 grid_search = RandomizedSearchCV(pipe,
                                  param_grid,
-                                 scoring='neg_mean_absolute_error',
-                                 n_iter=3)
+                                 scoring='neg_mean_squared_error',
+                                 n_iter=6)
 grid_search.fit(X, y)
 print(grid_search.best_params_)
 cv_results = pd.DataFrame(grid_search.cv_results_)
