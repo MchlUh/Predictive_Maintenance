@@ -137,7 +137,7 @@ param_grid = {
     'xgb__max_depth': range(2, 4)
 }
 
-splits = split_engines_for_cv(train_df, 5)  # TODO: feed splits to GridSearchCV (félix)
+splits = split_engines_for_cv(train_df, 5)  # TODO: feed splits to CV (félix)
 grid_search = RandomizedSearchCV(pipe,
                                  param_grid,
                                  scoring='neg_mean_absolute_error',
