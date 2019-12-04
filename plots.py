@@ -5,20 +5,20 @@ from collections import OrderedDict
 
 from statsmodels.graphics.correlation import plot_corr
 from sklearn.decomposition import PCA
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 
 
 def plot_engine_signals(engine_id, df, signals, scale_signals=True):
     df = df.copy()
     if scale_signals:
-        scaler = MinMaxScaler()
+        scaler = StandardScaler()
         df.loc[:, signals] = scaler.fit_transform(df.loc[:, signals])
 
     if 'time_to_failure' in df.columns:
         [plt.plot(df.loc[engine_id, "time_to_failure"],
                   df.loc[engine_id, signal]) for signal in signals]
         plt.xlabel('Remaining Useful Life')
-        plt.xlim(0, 200)
+        plt.xlim(0, df.time_to_failure.max())
         ax = plt.gca()
         ax.set_xlim(ax.get_xlim()[::-1])  # Reverse x axis (time to failure ends at 0)
 
@@ -39,7 +39,7 @@ def plot_superposed_engine_signals(engine_ids, df, signals):
          for engine_id in engine_ids]
         plt.xlabel('Remaining Useful Life')
         plt.ylabel(signal)
-        plt.xlim(0, 200)
+        plt.xlim(0, df.time_to_failure.max())
         ax = plt.gca()
         ax.set_xlim(ax.get_xlim()[::-1])
         plt.title("Evolution of {signal} for {number_of_engines} engines".format(signal=signal,
@@ -68,12 +68,10 @@ def plot_correlation_map(train, sensor_columns):
     plt.show()
 
 
-# Plotting time !
-# Let's see how signals evolve during the lifetime of these engines
 def plot_3d_lifetime_paths(train):
     # PC1 signals seem to gather at 1 for end of lifetime
     # and PC2 signals gather somewhere around 0.5 for beginning of life.
-    # Furthermore, the data points are more spaced out at end of life (derivatives are higher!)
+    # Furthermore, the data points are more spaced out at end of life (derivatives are higher)
     # We might want to add this information to the dataset by computing derivatives or variance
     # All of this will give the model insight about health conditions.
     if 'PC1' not in train.columns:
@@ -99,6 +97,12 @@ def plot_error_repartition(y_true, y_pred):
     for i in set(y_true):
         errors[i] = []
     [errors[true].append(np.abs(pred-true)) for true, pred in zip(y_true, y_pred)]
-    plt.plot(list(errors.keys()), list(map(np.mean, errors.values())))
+    plt.plot(list(errors.keys()), list(map(np.mean, errors.values())), label='Mean error')
+    plt.plot(list(errors.keys()), list(map(np.max, errors.values())), label='Max error')
+    plt.plot(list(errors.keys()), list(map(np.median, errors.values())), label='Median error')
+    plt.xlabel('Remaining useful life')
+    plt.ylabel('Absolute error')
+    plt.legend()
+    plt.grid()
     plt.title("Error repartition")
     plt.show()

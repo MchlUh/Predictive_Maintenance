@@ -6,8 +6,8 @@ def feature_engineer(train, test, sensors, functions, silent=True, drop_na=True)
     """
     Applies list of functions to sensor signals
 
-    :param train: indexed training dataset by engine_id
-    :param test: indexed testing dataset by engine_id
+    :param train_feat: indexed training dataset by engine_id
+    :param test_feat: indexed testing dataset by engine_id
     :param sensors: frame columns to apply feature engineering to
     :param functions: Set of tuples of feature engineering functions and dictionary of parameters.
                       The functions take a pandas Series indexed by engine id as input
@@ -20,11 +20,11 @@ def feature_engineer(train, test, sensors, functions, silent=True, drop_na=True)
     :param drop_na: drop rows containing NaN values after rolling window and shift operations
     :return: transformed training set and transformed testing set
     """
-    train = train.copy()
-    test = test.copy()
+    train_feat = train.copy()
+    test_feat = test.copy()
     if not silent:
         print('Applying feature engineering to training and testing sets')
-    for frame in (train, test):
+    for frame in (train_feat, test_feat):
         for func, params in functions:
             if not silent:
                 print('Applying {function} with {params}'.format(function=func.__name__, params=params))
@@ -32,8 +32,8 @@ def feature_engineer(train, test, sensors, functions, silent=True, drop_na=True)
                 new_column, column_name = func(signal=frame[sensor], **params)
                 frame[column_name] = new_column
     if not drop_na:
-        return train, test
-    return train.dropna(), test.dropna()
+        return train_feat, test_feat
+    return train_feat.dropna(), test_feat.dropna()
 
 
 def rolling_mean(signal, time_window_length):
@@ -120,7 +120,7 @@ def rolling_max(signal, time_window_length):
     return signal, name
 
 
-def rolling_variance(signal, time_window_length):
+def rolling_std(signal, time_window_length):
     """
     :param signal: sensor signal
     :param time_window_length: length of time window to compute variance
@@ -128,7 +128,7 @@ def rolling_variance(signal, time_window_length):
     """
     signal = signal.copy()
     for engine_id in set(signal.index):
-        signal.loc[engine_id] = signal.loc[engine_id].rolling(time_window_length).max()
+        signal.loc[engine_id] = signal.loc[engine_id].rolling(time_window_length).std()
     name = '{signal}_rolling_variance_{time_window_length}'.format(signal=signal.name,
                                                                    time_window_length=time_window_length)
     return signal, name
@@ -170,6 +170,7 @@ def diff_signal(signal, n_lag):
     :param n_lag: lag to apply to the signal
     :return: change in signal (value)
     """
+    signal = signal.copy()
     for engine_id in set(signal.index):
         signal.loc[engine_id] = signal.loc[engine_id].diff(periods=n_lag)
     name = '{signal}_diff_lag_{n_lag}'.format(signal=signal.name, n_lag=n_lag)
@@ -181,8 +182,8 @@ def log(signal):
     :param signal: sensor signal series
     :return: log of signal (for exponential smoothing)
     """
+    signal = signal.copy()
     name = '{signal}_log'.format(signal=signal.name)
-
     return pd.Series(np.log(signal)), name
 
 
@@ -192,6 +193,7 @@ def delta_signal(signal, n_lag):
     :param n_lag: lag to apply to the signal
     :return: 1st order derivative : rate of change of signal (% change)
     """
+    signal = signal.copy()
     for engine_id in set(signal.index):
         signal.loc[engine_id] = signal.loc[engine_id].pct_change(periods=n_lag)
     name = '{signal}_delta_lag_{n_lag}'.format(signal=signal.name, n_lag=n_lag)
@@ -204,6 +206,7 @@ def gamma_signal(signal, n_lag):
     :param n_lag: lag to apply to the signal
     :return: 2nd order derivative: acceleration of change of signal
     """
+    signal = signal.copy()
     for engine_id in set(signal.index):
         signal.loc[engine_id] = signal.loc[engine_id].pct_change(periods=n_lag)
         signal.loc[engine_id] = signal.loc[engine_id].pct_change(periods=n_lag)
@@ -218,6 +221,7 @@ def theta_signal(signal, n_lag):
     :return: list of change in signal wrt to max remaining life for the signal
     """
     ### TODO: implement a loop with a decreasing remaining life value
+    signal = signal.copy()
     remaining_life = signal.max()
     L=[]
     for engine_id in set(signal.index):
@@ -239,9 +243,10 @@ def vega_signal(signal, n_lag):
     """
     ### Need to work on this one some more
     ### TODO: compute the change in volatility: what's the equivalent to implied vol here? should I use a rolling window?
+    signal = signal.copy()
     for engine_id in set(signal.index):
         nomin = signal.loc[engine_id].pct_change(periods=n_lag)
-    denom = rolling_variance(signal,n_lag)
+    denom = rolling_std(signal, n_lag)
     name = '{signal}_vega_lag_{n_lag}'.format(signal=signal.name, n_lag=n_lag)
     return nomin/denom, name
 
@@ -252,6 +257,7 @@ def charm_signal(signal, n_lag):
     :param n_lag: lag to apply to the signal
     :return: delta decay = instantaneous rate of change of delta over the passage of time
     """
+    signal = signal.copy()
     ### TODO: compute the change in volatility: what's the equivalent to implied vol here? should I use a rolling window?
     for engine_id in set(signal.index):
         print('')
@@ -273,7 +279,7 @@ if __name__ == '__main__':
         (rolling_min, {'time_window_length': 20}),
         (rolling_abs_energy, {'time_window_length': 20}),
         (rolling_abs_sum_of_changes, {'time_window_length': 20}),
-        (rolling_variance, {'time_window_length': 20}),
+        (rolling_std, {'time_window_length': 20}),
         (time_reversal_asymmetry, {'time_window_length': 20, 'n_lag': 5}),
         (log, {}),
         (diff_signal, {'n_lag': 20}),

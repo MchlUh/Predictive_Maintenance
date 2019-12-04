@@ -6,7 +6,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import RandomizedSearchCV
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import SelectKBest, RFECV, RFE
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import xgboost as xgb
@@ -55,20 +55,21 @@ plots.plot_pca_variance_contribution(train_df, filtered_signals)
 n_pc_components = 2
 pc_columns = ['PC{}'.format(i+1) for i in range(n_pc_components)]
 
-# # Perform PCA
-# scaler = MinMaxScaler()
+# Perform PCA
+# scaler = StandardScaler()
 # scaler.fit(train_df[filtered_signals])
 # train_df[filtered_signals] = scaler.transform(train_df[filtered_signals])
 # test_df[filtered_signals] = scaler.transform(test_df[filtered_signals])
-
+#
 # pca = PCA(n_components=2)
 # train_pca = pd.DataFrame(pca.fit_transform(train_df[filtered_signals]), columns=pc_columns, index=train_df.index)
 # test_pca = pd.DataFrame(pca.transform(test_df[filtered_signals]), columns=pc_columns, index=test_df.index)
 # for pc_col in pc_columns:
 #     train_df[pc_col], test_df[pc_col] = train_pca[pc_col], test_pca[pc_col]
-# plots.plot_3d_lifetime_paths(train_df)
-
+#
 # train_df, test_df = train_df.drop(filtered_signals, axis=1), test_df.drop(filtered_signals, axis=1)
+#
+# plots.plot_3d_lifetime_paths(train_df)
 
 
 feature_engineering_functions = [
@@ -79,13 +80,14 @@ feature_engineering_functions = [
     (feature_engineering.rolling_min, {'time_window_length': 20}),
     (feature_engineering.rolling_abs_energy, {'time_window_length': 20}),
     (feature_engineering.rolling_abs_sum_of_changes, {'time_window_length': 20}),
-    (feature_engineering.rolling_variance, {'time_window_length': 20}),
-    (feature_engineering.time_reversal_asymmetry, {'time_window_length': 20, 'n_lag': 5})
-#    (feature_engineering.log, {})
-#    (feature_engineering.diff_signal, {'n_lag': 20}),
-#    (feature_engineering.gamma_signal, {'n_lag': 20})
-] # TODO: fix functions
+    (feature_engineering.rolling_std, {'time_window_length': 20}),
+    (feature_engineering.time_reversal_asymmetry, {'time_window_length': 20, 'n_lag': 5}),
+    (feature_engineering.log, {}),
+    (feature_engineering.diff_signal, {'n_lag': 20}),
+    (feature_engineering.gamma_signal, {'n_lag': 20})
+]
 
+# TODO: fix functions
 train_df, test_df = feature_engineering.feature_engineer(train_df,
                                                          test_df,
                                                          filtered_signals,
@@ -125,21 +127,22 @@ if recursive_feature_elimination:
     selected_features = [X.columns[i] for i in range(X.shape[1]) if rfe.get_support()[i]]
     print('selected features :', selected_features)
 
-pipe = Pipeline(steps=[('scaler', MinMaxScaler()),
+pipe = Pipeline(steps=[('scaler', StandardScaler()),
                        #('rfe', RFE(xgb.XGBRegressor(max_depth=6))),
                        ('xgb', xgb.XGBRegressor())])
 
 param_grid = {
     # 'kbest__k': list(map(lambda x: min(x, train_df.shape[1] - 1), [20, 30, 40, 50])),
-    'xgb__n_estimators': [10, 20, 40, 100],
-    'xgb__max_depth': range(2, 10)
+    'xgb__n_estimators': [100, 200, 300],
+    'xgb__max_depth': range(2, 4)
 }
 
-splits = split_engines_for_cv(train_df, 5)  # TODO: feed splits to GridSearchCV (félix)
+
+splits = split_engines_for_cv(train_df, 5)  # TODO: feed splits to CV (félix)
 grid_search = RandomizedSearchCV(pipe,
                                  param_grid,
-                                 scoring='neg_mean_absolute_error',
-                                 n_iter=3)
+                                 scoring='neg_mean_squared_error',
+                                 n_iter=6)
 grid_search.fit(X, y)
 print(grid_search.best_params_)
 cv_results = pd.DataFrame(grid_search.cv_results_)
@@ -148,6 +151,7 @@ cv_results = pd.DataFrame(grid_search.cv_results_)
 X_test, y_test = test_df.drop('time_to_failure', axis=1), test_df.time_to_failure
 pipe = pipe.set_params(**grid_search.best_params_)
 pipe.fit(X, np.log(y+1))
+
 predictions = np.exp(pipe.predict(X_test)) - 1
 
 trues_vs_predictions = pd.DataFrame(zip(y_test, predictions), index=test_df.index, columns=['True', 'Prediction'])

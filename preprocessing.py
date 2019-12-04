@@ -24,6 +24,7 @@ def generate_labels(train, test, test_label_file_name):
         train.loc[engine_id, "time_to_failure"] = train.loc[engine_id, "time"].max() \
                                                                     - train.loc[engine_id, "time"]
     train.time_to_failure = train.time_to_failure.astype(np.int32)
+    train.time_to_failure = train.time_to_failure.apply(lambda x: x if x<150 else 150)
     train = train.drop(columns="time")
 
     label_file = open(test_label_file_name, "r")
@@ -36,6 +37,7 @@ def generate_labels(train, test, test_label_file_name):
                                                                   - test.loc[engine_id, "time"]
     test = test.drop(columns="time")
     test.time_to_failure = test.time_to_failure.astype(np.int32)
+    test.time_to_failure = test.time_to_failure.apply(lambda x: x if x<150 else 150)
 
     return train, test
 
