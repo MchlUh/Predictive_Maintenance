@@ -83,6 +83,7 @@ cv_scores_lin_reg
 # --> Overfitting
 
 plot_error_repartition(y_test, y_pred_lm, model_name='Linear Regression', save=True)
+residual_quadra_plot(y_test, y_pred_lm)
 
 
 
@@ -189,22 +190,22 @@ residual_quadra_plot(y_test, y_pred_rf)
 ####       ##      #    ##
 
 
-svr_params = {'kernel': ['sigmoid', 'poly', 'rbf']}
-grid_search_svr = GridSearchCV(SVR(),
-                               svr_params,
-                               scoring=['neg_mean_absolute_error'],
-                               refit='neg_mean_absolute_error',
-                               cv=5,
-                               verbose=2,
-                               n_jobs=-1)
-
-grid_search_svr.fit(X[selected_features_rf_50], y)
-grid_searchCV_results_svr = grid_search_svr.cv_results_
-pd.DataFrame(grid_searchCV_results_svr).to_csv("regression_results_and_plots/grid_searchCV_results_svr.csv")
-grid_searchCV_results_svr = pd.read_csv("regression_results_and_plots/grid_searchCV_results_svr.csv")
-
-best_svr_params = grid_search_svr.best_params_
-best_svr_params = {'C': 1, 'gamma': 'scale', 'kernel': 'rbf'}
+# svr_params = {'kernel': ['sigmoid', 'poly', 'rbf']}
+# grid_search_svr = GridSearchCV(SVR(),
+#                                svr_params,
+#                                scoring=['neg_mean_absolute_error'],
+#                                refit='neg_mean_absolute_error',
+#                                cv=5,
+#                                verbose=2,
+#                                n_jobs=-1)
+#
+# grid_search_svr.fit(X[selected_features_rf_50], y)
+# grid_searchCV_results_svr = grid_search_svr.cv_results_
+# pd.DataFrame(grid_searchCV_results_svr).to_csv("regression_results_and_plots/grid_searchCV_results_svr.csv")
+# grid_searchCV_results_svr = pd.read_csv("regression_results_and_plots/grid_searchCV_results_svr.csv")
+#
+# best_svr_params = grid_search_svr.best_params_
+best_svr_params = {'kernel': 'rbf'}
 svr = SVR(**best_svr_params)
 svr.fit(X[selected_features_rf_50], y)
 y_pred_svr = svr.predict(X_test[selected_features_rf_50])
@@ -212,8 +213,9 @@ pd.DataFrame(y_pred_svr).to_csv('regression_results_and_plots/y_pred_svr.csv')
 y_pred_svr = pd.read_csv('regression_results_and_plots/y_pred_svr.csv')['0']
 print('SVR with 50 best feature', mean_absolute_error(y_test, y_pred_svr), mean_squared_error(y_test, y_pred_svr))
 plot_error_repartition(y_test, y_pred_svr, model_name='SVR', save=True)
+plt.show()
 residual_quadra_plot(y_test, y_pred_svr)
-
+plt.show()
 
 ##      ##    ######
   ##  ##     #
@@ -255,23 +257,32 @@ xgb_reg_weighted.fit(X[selected_features_rf_50], y, verbose=2, sample_weight=sam
 xgb_reg = xgb.XGBRegressor(**xg_params)
 xgb_reg.fit(X[selected_features_rf_50], y, verbose=2)
 
+xgb_reg_all_features = xgb.XGBRegressor(**xg_params)
+xgb_reg_all_features.fit(X, y, verbose=2)
 
-# evals_result = xgb_reg.evals_result()
-# xgb_reg.save_model('xgb1.model')
+cv_scores_xgb = cross_val_score(xgb_reg, X[selected_features_rf_50], y, scoring='neg_mean_absolute_error', cv=5, n_jobs=-1)
+
+cv_scores_xgb = cross_val_score(xgb_reg, X, y, scoring='neg_mean_absolute_error', cv=5, n_jobs=-1)
 
 xgb.plot_importance(xgb_reg)
 plt.show()
 
 y_pred_xgb = xgb_reg.predict(X_test[selected_features_rf_50])
 y_pred_xgb_weighted = xgb_reg_weighted.predict(X_test[selected_features_rf_50])
+y_pred_xgb_all_features = xgb_reg_all_features.predict(X_test[selected_features_rf_50])
 
 print('XGB', mean_absolute_error(y_test, y_pred_xgb),
       mean_squared_error(y_test, y_pred_xgb))
 print('XGB weighted', mean_absolute_error(y_test, y_pred_xgb),
       mean_squared_error(y_test, y_pred_xgb))
+print('XGB all features', mean_absolute_error(y_test, y_pred_xgb_all_features),
+      mean_squared_error(y_test, y_pred_xgb_all_features))
 
 plot_error_repartition(y_test, y_pred_xgb, model_name='XGB', save=True)
 plot_error_repartition(y_test, y_pred_xgb_weighted, model_name='XGB weighted', save=True)
+plot_error_repartition(y_test, y_pred_xgb_all_features, model_name='XGB all features', save=True)
 
 residual_quadra_plot(y_test, y_pred_xgb)
 residual_quadra_plot(y_test, y_pred_xgb_weighted)
+residual_quadra_plot(y_test, y_pred_xgb_all_features)
+
