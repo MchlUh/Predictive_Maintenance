@@ -93,7 +93,7 @@ def plot_3d_lifetime_paths(train):
     plt.show()
 
 
-def plot_error_repartition(trues, preds, show=True):
+def plot_error_repartition(trues, preds, show=True, model_name="", save=False):
     errors = OrderedDict.fromkeys(sorted(set(trues)))
     for i in set(trues):
         errors[i] = []
