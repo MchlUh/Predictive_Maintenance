@@ -9,7 +9,7 @@ from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor
 import datetime
 from sklearn.svm import SVR
 from matplotlib import pyplot as plt
-from plots import plot_error_repartition
+from plots import *
 import csv
 import json
 
@@ -252,7 +252,7 @@ xgb_reg.fit(X[selected_features_rf_50], y, verbose=2)
 
 
 # evals_result = xgb_reg.evals_result()
-xgb_reg.save_model('xgb1.model')
+# xgb_reg.save_model('xgb1.model')
 
 xgb.plot_importance(xgb_reg)
 plt.show()
@@ -267,4 +267,7 @@ print('XGB weighted', mean_absolute_error(y_test, y_pred_xgb),
 
 plot_error_repartition(y_test, y_pred_xgb, model_name='XGB', save=True)
 plot_error_repartition(y_test, y_pred_xgb_weighted, model_name='XGB weighted', save=True)
-
+plot_residuals(y_test, y_pred_xgb_weighted)
+residuals_zoom(y_test, y_pred_xgb_weighted)
+hist_residuals(y_test, y_pred_xgb_weighted)
+residual_dual_plot(y_test, y_pred_xgb_weighted)
