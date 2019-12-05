@@ -2,7 +2,8 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegressionCV, LogisticRegression
 from sklearn.metrics import classification_report
 from sklearn.feature_selection import SelectKBest, RFECV
-
+from yellowbrick.classifier import ClassificationReport
+from yellowbrick.features import parallel_coordinates
 
 df_train = pd.read_csv('feature_engineered_train.csv').set_index('id')
 df_test = pd.read_csv('feature_engineered_test.csv').set_index('id')
@@ -34,6 +35,17 @@ print('selected kbest features:', selected_features_kbest)
 
 X = X[selected_features_rfe]
 X_test = X_test[selected_features_rfe]
+
+
+g = parallel_coordinates(X, y)
+g = classification_report(LogisticRegression(), X, y)
+
+model = LogisticRegressionCV()
+visualizer = ClassificationReport(model)
+
+visualizer.fit(X, y)
+visualizer.score(X_test, y_test)
+visualizer.show()
 
 log_reg = LogisticRegressionCV()
 log_reg.fit(X, y)

@@ -33,7 +33,7 @@ def plot_engine_signals(engine_id, df, signals, scale_signals=True):
     plt.show()
 
 
-def plot_superposed_engine_signals(engine_ids, df, signals):
+def plot_superposed_engine_signals(engine_ids, df, signals, show=True):
     for signal in signals:
         [plt.plot(df.loc[engine_id, "time_to_failure"], df.loc[engine_id, signal], linewidth=.4)
          for engine_id in engine_ids]
@@ -43,8 +43,9 @@ def plot_superposed_engine_signals(engine_ids, df, signals):
         ax = plt.gca()
         ax.set_xlim(ax.get_xlim()[::-1])
         plt.title("Evolution of {signal} for {number_of_engines} engines".format(signal=signal,
-                                                                                 number_of_engines=len(engine_ids)))
-        plt.show()
+                                                                    number_of_engines=len(engine_ids)))
+        if show:
+            plt.show()
 
 
 def plot_pca_variance_contribution(df, cols):
@@ -92,17 +93,66 @@ def plot_3d_lifetime_paths(train):
     plt.show()
 
 
-def plot_error_repartition(y_true, y_pred):
-    errors = OrderedDict.fromkeys(sorted(set(y_true)))
-    for i in set(y_true):
+def plot_error_repartition(trues, preds, show=True):
+    errors = OrderedDict.fromkeys(sorted(set(trues)))
+    for i in set(trues):
         errors[i] = []
-    [errors[true].append(np.abs(pred-true)) for true, pred in zip(y_true, y_pred)]
+    [errors[true].append(np.abs(pred-true)) for true, pred in zip(trues, preds)]
     plt.plot(list(errors.keys()), list(map(np.mean, errors.values())), label='Mean error')
     plt.plot(list(errors.keys()), list(map(np.max, errors.values())), label='Max error')
     plt.plot(list(errors.keys()), list(map(np.median, errors.values())), label='Median error')
-    plt.xlabel('Remaining useful life')
+    plt.xlabel('True RUL values')
     plt.ylabel('Absolute error')
     plt.legend()
-    plt.grid()
-    plt.title("Error repartition")
-    plt.show()
+    plt.title("Absolute error repartition")
+    if show:
+        plt.show()
+
+
+def plot_residuals(trues, preds, show=True):
+    plt.scatter(trues, preds-trues, s=3)
+    plt.plot(range(151), list(map(lambda x: x/5, range(151))), label='20% overestimation', c='darkred', linestyle='--')
+    plt.plot(range(151), list(map(lambda x: -x/5, range(151))), label='20% underestimation', c='red', linestyle='--')
+    plt.title('Model residuals')
+    plt.xlabel('True RUL values')
+    plt.ylabel('Model error')
+    plt.legend()
+    if show:
+        plt.show()
+
+
+def residuals_zoom(trues, preds, max_rul=30, show=True):
+    plt.scatter(trues[trues <= max_rul], preds[trues <= max_rul]-trues[trues <= max_rul], s=6)
+    plt.plot(range(max_rul+1), list(map(lambda x: x/5, range(max_rul+1))), label='20% overestimation', c='darkred', linestyle='--')
+    plt.plot(range(max_rul+1), list(map(lambda x: -x/5, range(max_rul+1))), label='20% underestimation', c='red', linestyle='--')
+    plt.title('Model residuals at end of life')
+    plt.xlabel('True RUL values')
+    plt.ylabel('Model error')
+    plt.legend()
+    if show:
+        plt.show()
+
+
+def hist_residuals(trues, preds, show=True):
+    plt.hist(preds-trues)
+    plt.title('Residuals distribution')
+    plt.xlabel('Model error')
+    plt.ylabel('Count')
+    plt.legend()
+    if show:
+        plt.show()
+
+
+def residual_dual_plot(trues, preds, show=True):
+    fig = plt.figure()
+    fig.add_subplot(221)
+    plot_residuals(trues, preds, show=False)
+    fig.add_subplot(222)
+    hist_residuals(trues, preds, show=False)
+    fig.add_subplot(223)
+    residuals_zoom(trues, preds, max_rul=30, show=False)
+    fig.add_subplot(224)
+    plot_error_repartition(trues, preds, show=False)
+    if show:
+        plt.show()
+

@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from random import shuffle
+import itertools
 
 from sklearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
@@ -11,10 +12,12 @@ from sklearn.feature_selection import SelectKBest, RFECV, RFE
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import xgboost as xgb
 
+
 import plots
 import feature_engineering
 from preprocessing import drop_constant_signals, generate_labels, denoise
 from ml_metrics import mean_absolute_percentage_error, mean_custom_error
+
 
 # CMAPSS dataset number
 dataset_number = 1
@@ -98,15 +101,18 @@ print('Feature engineering complete')
 train_df.to_csv('feature_engineered_train.csv')
 test_df.to_csv('feature_engineered_test.csv')
 
+
 def split_engines_for_cv(train, n_folds=5):
     """
     Splits engines into n_folds folds for cross-validation
     Returns list of frame indices for each fold
-    :param train: training set
+    :param train: training set, indexed by engine id
     :param n_folds: number of folds
     :return: list of lists containing engine ids in every fold
     """
     engine_ids = list(set(train.index))
+    train = train.copy().reset_index()
+
     shuffle(engine_ids)
     engine_splits = []
     split_length = len(engine_ids)//n_folds
@@ -114,8 +120,21 @@ def split_engines_for_cv(train, n_folds=5):
         engine_splits.append(engine_ids[i*split_length:(i+1)*split_length])
     engine_splits.append(engine_ids[(n_folds-1)*split_length:])
 
-    return engine_splits
+    split_rows = [train.id.isin(engine_splits[i]) for i in range(n_folds)]
 
+    split_indices = [[indice for indice, is_in_split_i in enumerate(split_rows[i]) if is_in_split_i]
+                     for i in range(n_folds)]
+
+    cv_folds = [  # Train instances for fold i
+                (np.array(list(itertools.chain.from_iterable(split_indices[:i] + split_indices[i+1:]))),
+                  # Test instances for fold i
+                 (np.array(split_indices[i]))) for i in range(n_folds)]
+
+    return cv_folds
+
+
+train_df = pd.read_csv('feature_engineered_train.csv').set_index('id')
+test_df = pd.read_csv('feature_engineered_test.csv').set_index('id')
 
 X, y = train_df.drop('time_to_failure', axis=1), train_df.time_to_failure
 
@@ -142,10 +161,12 @@ splits = split_engines_for_cv(train_df, 5)  # TODO: feed splits to CV (félix)
 grid_search = RandomizedSearchCV(pipe,
                                  param_grid,
                                  scoring='neg_mean_squared_error',
-                                 n_iter=6)
-grid_search.fit(X, y)
+                                 n_iter=1,
+                                 cv=splits)
+grid_search.fit(X.reset_index(drop=True), y)
 print(grid_search.best_params_)
 cv_results = pd.DataFrame(grid_search.cv_results_)
+print('cv results :', cv_results)
 
 # Final predictions on test set
 X_test, y_test = test_df.drop('time_to_failure', axis=1), test_df.time_to_failure
@@ -156,6 +177,7 @@ predictions = np.exp(pipe.predict(X_test)) - 1
 
 trues_vs_predictions = pd.DataFrame(zip(y_test, predictions), index=test_df.index, columns=['True', 'Prediction'])
 
+
 print('MAE {mae} RMSE {rmse} MAPE {mape} Mean Custom Error {custom_error}'.format(
     rmse=mean_squared_error(y_test, predictions),
     mae=mean_absolute_error(y_test, predictions),
@@ -163,3 +185,4 @@ print('MAE {mae} RMSE {rmse} MAPE {mape} Mean Custom Error {custom_error}'.forma
     mape=mean_absolute_percentage_error((y_test+1), (predictions+1))))
 
 plots.plot_error_repartition(y_test, predictions)
+
