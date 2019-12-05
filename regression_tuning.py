@@ -122,7 +122,7 @@ print('ElasticNet with selected_features_rfe',
 # ElasticNet with RFE feature selection 16.789633429226136 441.0482719856923
 
 plot_error_repartition(y_test, y_pred_lm_elastic, model_name='ElasticNet', save=True)
-
+residual_quadra_plot(y_test, y_pred_lm_elastic)
 # cv_scores_elasticNet = cross_val_score(lm_elastic, X[selected_features_rfe], y, scoring='neg_mean_absolute_error', cv=5, n_jobs=-1)
 # cv_scores_elasticNet : array([-13.44161491, -12.67828467, -15.41808165, -15.1937048 , -15.53008139])
 # --> No more Overfitting
@@ -179,6 +179,7 @@ print('RandomForest Regressor with 50 Best features',
       mean_absolute_error(y_test, y_pred_rf), mean_squared_error(y_test, y_pred_rf))
 
 plot_error_repartition(y_test, y_pred_rf, model_name='RandomForest_30', save=True)
+residual_quadra_plot(y_test, y_pred_rf)
 
 
 #####  #        #  ######
@@ -188,22 +189,22 @@ plot_error_repartition(y_test, y_pred_rf, model_name='RandomForest_30', save=Tru
 ####       ##      #    ##
 
 
-# svr_params = {'kernel': ['sigmoid', 'poly', 'rbf'], 'gamma': ['scale'], 'C': [0.5, 1, 1.5]}
-# grid_search_svr = GridSearchCV(SVR(),
-#                                svr_params,
-#                                scoring=['neg_mean_absolute_error'],
-#                                refit='neg_mean_absolute_error',
-#                                cv=5,
-#                                verbose=2,
-#                                n_jobs=-1)
-#
-# grid_search_svr.fit(X[selected_features_rf_50], y)
-# grid_searchCV_results_svr = grid_search_svr.cv_results_
-# pd.DataFrame(grid_searchCV_results_svr).to_csv("regression_results_and_plots/grid_searchCV_results_svr.csv")
-# grid_searchCV_results_svr = pd.read_csv("regression_results_and_plots/grid_searchCV_results_svr.csv")
-#
-# best_svr_params = grid_search_svr.best_params_
+svr_params = {'kernel': ['sigmoid', 'poly', 'rbf']}
+grid_search_svr = GridSearchCV(SVR(),
+                               svr_params,
+                               scoring=['neg_mean_absolute_error'],
+                               refit='neg_mean_absolute_error',
+                               cv=5,
+                               verbose=2,
+                               n_jobs=-1)
 
+grid_search_svr.fit(X[selected_features_rf_50], y)
+grid_searchCV_results_svr = grid_search_svr.cv_results_
+pd.DataFrame(grid_searchCV_results_svr).to_csv("regression_results_and_plots/grid_searchCV_results_svr.csv")
+grid_searchCV_results_svr = pd.read_csv("regression_results_and_plots/grid_searchCV_results_svr.csv")
+
+best_svr_params = grid_search_svr.best_params_
+best_svr_params = {'C': 1, 'gamma': 'scale', 'kernel': 'rbf'}
 svr = SVR(**best_svr_params)
 svr.fit(X[selected_features_rf_50], y)
 y_pred_svr = svr.predict(X_test[selected_features_rf_50])
@@ -211,6 +212,7 @@ pd.DataFrame(y_pred_svr).to_csv('regression_results_and_plots/y_pred_svr.csv')
 y_pred_svr = pd.read_csv('regression_results_and_plots/y_pred_svr.csv')['0']
 print('SVR with 50 best feature', mean_absolute_error(y_test, y_pred_svr), mean_squared_error(y_test, y_pred_svr))
 plot_error_repartition(y_test, y_pred_svr, model_name='SVR', save=True)
+residual_quadra_plot(y_test, y_pred_svr)
 
 
 ##      ##    ######
@@ -271,5 +273,5 @@ print('XGB weighted', mean_absolute_error(y_test, y_pred_xgb),
 plot_error_repartition(y_test, y_pred_xgb, model_name='XGB', save=True)
 plot_error_repartition(y_test, y_pred_xgb_weighted, model_name='XGB weighted', save=True)
 
-
+residual_quadra_plot(y_test, y_pred_xgb)
 residual_quadra_plot(y_test, y_pred_xgb_weighted)
