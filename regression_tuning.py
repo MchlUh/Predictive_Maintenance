@@ -267,7 +267,6 @@ print('XGB weighted', mean_absolute_error(y_test, y_pred_xgb),
 
 plot_error_repartition(y_test, y_pred_xgb, model_name='XGB', save=True)
 plot_error_repartition(y_test, y_pred_xgb_weighted, model_name='XGB weighted', save=True)
-plot_residuals(y_test, y_pred_xgb_weighted)
-residuals_zoom(y_test, y_pred_xgb_weighted)
-hist_residuals(y_test, y_pred_xgb_weighted)
+
+
 residual_dual_plot(y_test, y_pred_xgb_weighted)
