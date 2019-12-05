@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression, ElasticNetCV, ElasticNet
+import xgboost as xgb
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.feature_selection import SelectKBest, RFECV, RFE, SelectFromModel
 from sklearn.model_selection import cross_val_score, GridSearchCV
@@ -8,7 +9,9 @@ from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor
 import datetime
 from sklearn.svm import SVR
 from matplotlib import pyplot as plt
+from plots import plot_error_repartition
 import csv
+import json
 
 df_train = pd.read_csv('feature_engineered_train.csv').set_index('id')
 df_test = pd.read_csv('feature_engineered_test.csv').set_index('id')
@@ -59,7 +62,13 @@ plt.grid()
 plt.show()
 
 selected_features_rf_50 = feat_imp.feat_name.values[:50]
-
+#
+#############
+#######################################################################################################
+# DONE WITH FEATURE SELECTION --> GOING TO MODEL SELECTION ###################################
+#######################################################################################################
+############
+#
 # Train LinearRegression on RFE features
 lin_reg = LinearRegression()
 lin_reg.fit(X[selected_features_rfe], y)
@@ -72,6 +81,11 @@ print('Linear Regression with RFE feature selection',
 cv_scores_lin_reg = cross_val_score(lin_reg, X[selected_features_rfe], y, scoring='neg_mean_absolute_error', cv=5, n_jobs=-1)
 cv_scores_lin_reg
 # --> Overfitting
+
+plot_error_repartition(y_test, y_pred_lm)
+
+
+
 
 # Train ElasticNet regression:
 # l1_ratio = 1
@@ -98,7 +112,7 @@ lm_elasticCV_params = {'alpha': 0.00031142146133688865,
  'fit_intercept': True,
  'l1_ratio': 1,
  'normalize': True,
- 'max_iter': 100000}
+ 'max_iter': 20000}
 
 lm_elastic = ElasticNet().set_params(**lm_elasticCV_params)
 lm_elastic.fit(X[selected_features_rfe], y)
@@ -108,12 +122,13 @@ print('ElasticNet with RFE feature selection',
       mean_absolute_error(y_test, y_pred_lm_elastic), mean_squared_error(y_test, y_pred_lm_elastic))
 # ElasticNet with RFE feature selection 16.789633429226136 441.0482719856923
 
+plot_error_repartition(y_test, y_pred_lm_elastic)
+
 # cv_scores_elasticNet = cross_val_score(lm_elastic, X[selected_features_rfe], y, scoring='neg_mean_absolute_error', cv=5, n_jobs=-1)
 # cv_scores_elasticNet : array([-13.44161491, -12.67828467, -15.41808165, -15.1937048 , -15.53008139])
 # --> No more Overfitting
 
 # Tye to fit on log of time
-lm_elastic = ElasticNet().set_params(**lm_elasticCV_params)
 lm_elastic.fit(X[selected_features_rfe], y.apply(lambda x: np.log(x+1)))
 
 y_pred_lm_elastic = lm_elastic.predict(X_test[selected_features_rfe])
@@ -121,41 +136,158 @@ y_pred_lm_elastic = np.exp(y_pred_lm_elastic)-1
 print('ElasticNet with RFE feature selection',
       mean_absolute_error(y_test, y_pred_lm_elastic), mean_squared_error(y_test, y_pred_lm_elastic))
 
+#######################################
+######    #######
+#    #    #
+# ####    ###
+#   ##    #
 
 # Train RandomForestRegressor on 50 most important features
 rf_params = {'n_estimators': [10, 30, 100],
              'criterion': ['mae'],
-             'max_depth': [3, 5, 7, 10],
+             'max_depth': [5, 7],
              'n_jobs': [-1],
-             'min_impurity_split': [0.0000001, 0.001]}
+             'min_impurity_decrease': [0, 0.1]}
+
 
 grid_search_rf = GridSearchCV(RandomForestRegressor(),
                               rf_params,
                               scoring=['neg_mean_absolute_error', 'neg_mean_squared_error'],
-                              cv=5)
+                              refit='neg_mean_absolute_error',
+                              cv=5,
+                              verbose=2,
+                              n_jobs=-1)
 
-grid_search_rf.fit()
+grid_search_rf.fit(X[feat_imp.feat_name.values[:50]], y)
+
+grid_searchCV_results_rf = grid_search_rf.cv_results_
+
+grid_searchCV_results_rf = pd.DataFrame(grid_searchCV_results_rf)
+grid_searchCV_results_rf.to_csv("grid_searchCV_results_rf_pandas.csv")
+
+
+w = csv.writer(open("grid_searchCV_results_rf.csv", "w"))
+for key, val in grid_searchCV_results_rf.items():
+    print(key)
+    w.writerow([key, val])
+
 
 rf = RandomForestRegressor(n_estimators=n_est, criterion=crit, max_depth=max_depth, n_jobs=-1)
 rf.fit(X[feat_imp.feat_name.values[:50]], y)
 
 X_test, y_test = df_test.drop('time_to_failure', axis=1), df_test.time_to_failure
-y_pred = rf.predict(X_test[selected_features_rfe_rf_100])
+y_pred_rf = rf.predict(X_test[feat_imp.feat_name.values[:50]])
 
-print('Linear Regression with RFE feature selection', mean_absolute_error(y_test, y_pred), mean_squared_error(y_test, y_pred))
+print('RandomForest Regressor with 50 Best features',
+      mean_absolute_error(y_test, y_pred_rf), mean_squared_error(y_test, y_pred_rf))
+
+plot_error_repartition(y_test, y_pred_rf)
+
+# Train SVM on Best 50 features:
+
+#####  #        #  ######
+#       #      #   #     #
+####     #    #    ######
+   #      #  #     #    ##
+####       ##      #    ##
+svr_params = {'kernel': ['sigmoid', 'poly'], 'gamma': ['scale'], 'C': [0.5, 1, 1.5]}
+grid_search_svr = GridSearchCV(SVR(),
+                               svr_params,
+                               scoring=['neg_mean_absolute_error', 'neg_mean_squared_error'],
+                               refit='neg_mean_absolute_error',
+                               cv=5,
+                               verbose=2,
+                               n_jobs=-1)
+
+grid_search_svr.fit(X[feat_imp.feat_name.values[:50]], y)
+grid_searchCV_results_svr = grid_search_svr.cv_results_
+
+w = csv.writer(open("grid_searchCV_results_svr.csv", "w"))
+for key, val in grid_searchCV_results_svr.items():
+    print(key)
+    w.writerow([key, val])
 
 
-
-# Train SVM on Best features for RandomForest
-kernel = 'sigmoid'
-gamma = 'scale'
-C = 1
 svr = SVR(kernel=kernel, gamma=gamma, C=C)
 cv_scores_svr = cross_val_score(svr, X, y, scoring='mae')
 
 X_test, y_test = df_test.drop('time_to_failure', axis=1), df_test.time_to_failure
-y_pred = lin_reg.predict(X_test[selected_features_kbest])
+y_pred_svr = lin_reg.predict(X_test[feat_imp.feat_name.values[:50]])
 
-print('Linear Regression with kbest feature selection', mean_absolute_error(y_test, y_pred), mean_squared_error(y_test, y_pred))
+print('SVR with 50 best feature', mean_absolute_error(y_test, y_pred_svr), mean_squared_error(y_test, y_pred_svr))
+plot_error_repartition(y_test, y_pred_rf)
 
 
+##      ##    ######
+  ##  ##     #
+    ##       #  ####
+  ##  ##     #    ##
+##      ##    ####
+
+
+
+def huber_loss_train(y_true, y_pred):
+    d = y_true - y_pred
+    h = 1  #h is delta in the graphic
+    scale = 1 + (d / h) ** 2
+    scale_sqrt = np.sqrt(scale)
+    grad = d / scale_sqrt
+    hess = 1 / scale / scale_sqrt
+    return grad, hess
+
+
+# define a loss that is MSE if time to failure is small (<50), and MAE otherwise.
+def custom_loss_train(y_true, y_pred):
+    if y_true < 50:
+        grad, hess = huber_loss_train(y_true, y_pred)
+    else:
+        grad = 2*(y_true - y_pred)
+        hess = 2
+    return grad, hess
+
+
+
+xg_params = {'max_depth': 3,
+             'learning_rate': 0.1,
+             'n_estimators': 100,
+             'verbosity': 2,
+             'objective': custom_loss_train,
+             'booster': 'gbtree',
+             'tree_method': 'auto',
+             'n_jobs': -1,
+             'gamma': 0,
+             'min_child_weight': 1,
+             'max_delta_step': 0,
+             'subsample': 1,
+             'colsample_bytree': 1,
+             'colsample_bylevel': 1,
+             'colsample_bynode': 1,
+             'reg_alpha': 0,
+             'reg_lambda': 1,
+             'scale_pos_weight': 1,
+             'base_score': 0.5,
+             'random_state': 0,
+             'missing': None,
+             'num_parallel_tree': 1,
+             'importance_type': 'gain'}
+
+
+xgb_reg = xgb.XGBRegressor(**xg_params)
+
+xgb_reg.fit(X[feat_imp.feat_name.values[:50]], y, verbose=2)
+
+# xgb_reg.fit(X_train, y_train,
+#         eval_set=[(X_train, y_train), (X_test, y_test)],
+#         eval_metric='logloss',
+#         verbose=True)
+
+# evals_result = xgb_reg.evals_result()
+xgb_reg.save_model('xgb1.model')
+
+xgb.plot_importance(xgb_reg)
+
+X_test, y_test = df_test.drop('time_to_failure', axis=1), df_test.time_to_failure
+y_pred_xgb = lin_reg.predict(X_test[feat_imp.feat_name.values[:50]])
+
+print('SVR with 50 best feature', mean_absolute_error(y_test, y_pred_svr), mean_squared_error(y_test, y_pred_svr))
+plot_error_repartition(y_test, y_pred_rf)
