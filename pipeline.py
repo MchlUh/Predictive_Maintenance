@@ -12,7 +12,6 @@ from sklearn.feature_selection import SelectKBest, RFECV, RFE
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import xgboost as xgb
 
-
 import plots
 import feature_engineering
 from preprocessing import drop_constant_signals, generate_labels, denoise
@@ -38,13 +37,15 @@ train_df.id, test_df.id = train_df.id.astype(np.int32), test_df.id.astype(np.int
 train_df.time, test_df.time = train_df.time.astype(np.int32), test_df.time.astype(np.int32)
 train_df, test_df = train_df.set_index('id'), test_df.set_index('id')
 
+label_file = "CMAPSSData/CMAPSSData/RUL_FD00{}.txt".format(dataset_number)
+train_df, test_df = generate_labels(train_df, test_df, label_file)
+print('Generated labels')
+
+
 print('Dropping constant signals...')
 train_df, test_df, filtered_signals = drop_constant_signals(train_df, test_df, test_df.columns)
 print('Filtered signals :', *filtered_signals)
 
-label_file = "CMAPSSData/CMAPSSData/RUL_FD00{}.txt".format(dataset_number)
-train_df, test_df = generate_labels(train_df, test_df, label_file)
-print('Generated labels')
 
 print('Denoising signals...')
 train_df, test_df = denoise(train_df, test_df, filtered_signals)
@@ -59,20 +60,17 @@ n_pc_components = 2
 pc_columns = ['PC{}'.format(i+1) for i in range(n_pc_components)]
 
 # Perform PCA
-# scaler = StandardScaler()
-# scaler.fit(train_df[filtered_signals])
-# train_df[filtered_signals] = scaler.transform(train_df[filtered_signals])
-# test_df[filtered_signals] = scaler.transform(test_df[filtered_signals])
-#
-# pca = PCA(n_components=2)
-# train_pca = pd.DataFrame(pca.fit_transform(train_df[filtered_signals]), columns=pc_columns, index=train_df.index)
-# test_pca = pd.DataFrame(pca.transform(test_df[filtered_signals]), columns=pc_columns, index=test_df.index)
-# for pc_col in pc_columns:
-#     train_df[pc_col], test_df[pc_col] = train_pca[pc_col], test_pca[pc_col]
-#
-# train_df, test_df = train_df.drop(filtered_signals, axis=1), test_df.drop(filtered_signals, axis=1)
-#
-# plots.plot_3d_lifetime_paths(train_df)
+scaler = StandardScaler()
+scaler.fit(train_df[filtered_signals])
+train_df[filtered_signals] = scaler.transform(train_df[filtered_signals])
+test_df[filtered_signals] = scaler.transform(test_df[filtered_signals])
+
+pca = PCA(n_components=2)
+train_pca = pd.DataFrame(pca.fit_transform(train_df[filtered_signals]), columns=pc_columns, index=train_df.index)
+test_pca = pd.DataFrame(pca.transform(test_df[filtered_signals]), columns=pc_columns, index=test_df.index)
+train_pca = train_pca.join(train_df.time_to_failure)
+test_pca = test_pca.join(test_df.time_to_failure)
+plots.plot_3d_lifetime_paths(train_pca)
 
 
 feature_engineering_functions = [
@@ -102,35 +100,7 @@ train_df.to_csv('feature_engineered_train.csv')
 test_df.to_csv('feature_engineered_test.csv')
 
 
-def split_engines_for_cv(train, n_folds=5):
-    """
-    Splits engines into n_folds folds for cross-validation
-    Returns list of frame indices for each fold
-    :param train: training set, indexed by engine id
-    :param n_folds: number of folds
-    :return: list of lists containing engine ids in every fold
-    """
-    engine_ids = list(set(train.index))
-    train = train.copy().reset_index()
 
-    shuffle(engine_ids)
-    engine_splits = []
-    split_length = len(engine_ids)//n_folds
-    for i in range(n_folds - 1):
-        engine_splits.append(engine_ids[i*split_length:(i+1)*split_length])
-    engine_splits.append(engine_ids[(n_folds-1)*split_length:])
-
-    split_rows = [train.id.isin(engine_splits[i]) for i in range(n_folds)]
-
-    split_indices = [[indice for indice, is_in_split_i in enumerate(split_rows[i]) if is_in_split_i]
-                     for i in range(n_folds)]
-
-    cv_folds = [  # Train instances for fold i
-                (np.array(list(itertools.chain.from_iterable(split_indices[:i] + split_indices[i+1:]))),
-                  # Test instances for fold i
-                 (np.array(split_indices[i]))) for i in range(n_folds)]
-
-    return cv_folds
 
 
 train_df = pd.read_csv('feature_engineered_train.csv').set_index('id')
@@ -184,5 +154,4 @@ print('MAE {mae} RMSE {rmse} MAPE {mape} Mean Custom Error {custom_error}'.forma
     custom_error=mean_custom_error(y_test, predictions),
     mape=mean_absolute_percentage_error((y_test+1), (predictions+1))))
 
-plots.plot_error_repartition(y_test, predictions)
-
+plots.residual_quadra_plot(y_test, predictions)
