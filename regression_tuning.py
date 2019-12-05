@@ -165,10 +165,10 @@ print('ElasticNet with selected_features_rfe on log(time_to_failure + 1)',
 # grid_searchCV_results_rf.to_csv("grid_searchCV_results_rf_pandas.csv")
 
 
-
 # Using best parameters for MAE and Overfitting:
-# rf = RandomForestRegressor(n_estimators=30, criterion='mae', max_depth=7, n_jobs=-1, min_impurity_decrease=0)
-# rf.fit(X[feat_imp.feat_name.values[:50]], y, verbose=2)
+# rf = RandomForestRegressor(n_estimators=30, criterion='mae',
+#                            max_depth=7, n_jobs=-1, min_impurity_decrease=0, verbose=2)
+# rf.fit(X[feat_imp.feat_name.values[:50]], y)
 #
 # X_test, y_test = df_test.drop('time_to_failure', axis=1), df_test.time_to_failure
 # y_pred_rf = rf.predict(X_test[selected_features_rf_50])
