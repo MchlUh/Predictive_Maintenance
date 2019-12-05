@@ -104,7 +104,9 @@ def plot_error_repartition(trues, preds, show=True):
     plt.xlabel('True RUL values')
     plt.ylabel('Absolute error')
     plt.legend()
-    plt.title("Absolute error repartition")
+    plt.title("Absolute error repartition for {model_name}".format(model_name=model_name))
+    if save:
+        plt.savefig("Absolute error repartition for {model_name}".format(model_name=model_name))
     if show:
         plt.show()
 
