@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import axes3d, Axes3D
 import numpy as np
 from collections import OrderedDict
+import yellowbrick
 
 from statsmodels.graphics.correlation import plot_corr
 from sklearn.decomposition import PCA
@@ -43,9 +44,9 @@ def plot_superposed_engine_signals(engine_ids, df, signals, show=True):
         ax = plt.gca()
         ax.set_xlim(ax.get_xlim()[::-1])
         plt.title("Evolution of {signal} for {number_of_engines} engines".format(signal=signal,
-                                                                    number_of_engines=len(engine_ids)))
-        if show:
-            plt.show()
+                                                                                 number_of_engines=len(engine_ids)))
+    if show:
+        plt.show()
 
 
 def plot_pca_variance_contribution(df, cols):
@@ -93,7 +94,12 @@ def plot_3d_lifetime_paths(train):
     plt.show()
 
 
+<<<<<<< HEAD
 def plot_error_repartition(trues, preds, show=True, model_name="", save=False):
+=======
+def plot_error_repartition(trues, preds, show=True):
+    plt.grid()
+>>>>>>> master
     errors = OrderedDict.fromkeys(sorted(set(trues)))
     for i in set(trues):
         errors[i] = []
@@ -104,14 +110,20 @@ def plot_error_repartition(trues, preds, show=True, model_name="", save=False):
     plt.xlabel('True RUL values')
     plt.ylabel('Absolute error')
     plt.legend()
+<<<<<<< HEAD
     plt.title("Absolute error repartition for {model_name}".format(model_name=model_name))
     if save:
         plt.savefig("Absolute error repartition for {model_name}.png".format(model_name=model_name))
+=======
+    plt.grid()
+    plt.title("Absolute error repartition")
+>>>>>>> master
     if show:
         plt.show()
 
 
 def plot_residuals(trues, preds, show=True):
+    plt.grid()
     plt.scatter(trues, preds-trues, s=3)
     plt.plot(range(151), list(map(lambda x: x/5, range(151))), label='20% overestimation', c='darkred', linestyle='--')
     plt.plot(range(151), list(map(lambda x: -x/5, range(151))), label='20% underestimation', c='red', linestyle='--')
@@ -119,11 +131,13 @@ def plot_residuals(trues, preds, show=True):
     plt.xlabel('True RUL values')
     plt.ylabel('Model error')
     plt.legend()
+    plt.grid()
     if show:
         plt.show()
 
 
 def residuals_zoom(trues, preds, max_rul=30, show=True):
+    plt.grid()
     plt.scatter(trues[trues <= max_rul], preds[trues <= max_rul]-trues[trues <= max_rul], s=6)
     plt.plot(range(max_rul+1), list(map(lambda x: x/5, range(max_rul+1))), label='20% overestimation', c='darkred', linestyle='--')
     plt.plot(range(max_rul+1), list(map(lambda x: -x/5, range(max_rul+1))), label='20% underestimation', c='red', linestyle='--')
@@ -136,16 +150,16 @@ def residuals_zoom(trues, preds, max_rul=30, show=True):
 
 
 def hist_residuals(trues, preds, show=True):
+    plt.grid()
     plt.hist(preds-trues)
     plt.title('Residuals distribution')
     plt.xlabel('Model error')
     plt.ylabel('Count')
-    plt.legend()
     if show:
         plt.show()
 
 
-def residual_dual_plot(trues, preds, show=True):
+def residual_quadra_plot(trues, preds, show=True):
     fig = plt.figure()
     fig.add_subplot(221)
     plot_residuals(trues, preds, show=False)
@@ -157,4 +171,3 @@ def residual_dual_plot(trues, preds, show=True):
     plot_error_repartition(trues, preds, show=False)
     if show:
         plt.show()
-
