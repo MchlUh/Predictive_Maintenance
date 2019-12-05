@@ -82,7 +82,7 @@ cv_scores_lin_reg = cross_val_score(lin_reg, X[selected_features_rfe], y, scorin
 cv_scores_lin_reg
 # --> Overfitting
 
-plot_error_repartition(y_test, y_pred_lm, 'Linear Regression', save=True)
+plot_error_repartition(y_test, y_pred_lm, model_name='Linear Regression', save=True)
 
 
 
@@ -111,17 +111,17 @@ lm_elasticCV_params = {'alpha': 0.00031142146133688865,
  'fit_intercept': True,
  'l1_ratio': 1,
  'normalize': True,
- 'max_iter': 20000}
+ 'max_iter': 50000}
 
 lm_elastic = ElasticNet().set_params(**lm_elasticCV_params)
 lm_elastic.fit(X[selected_features_rfe], y)
 
 y_pred_lm_elastic = lm_elastic.predict(X_test[selected_features_rfe])
-print('ElasticNet with RFE feature selection',
+print('ElasticNet with selected_features_rfe',
       mean_absolute_error(y_test, y_pred_lm_elastic), mean_squared_error(y_test, y_pred_lm_elastic))
 # ElasticNet with RFE feature selection 16.789633429226136 441.0482719856923
 
-plot_error_repartition(y_test, y_pred_lm_elastic, 'ElasticNet', save=True)
+plot_error_repartition(y_test, y_pred_lm_elastic, model_name='ElasticNet', save=True)
 
 # cv_scores_elasticNet = cross_val_score(lm_elastic, X[selected_features_rfe], y, scoring='neg_mean_absolute_error', cv=5, n_jobs=-1)
 # cv_scores_elasticNet : array([-13.44161491, -12.67828467, -15.41808165, -15.1937048 , -15.53008139])
@@ -132,7 +132,7 @@ lm_elastic.fit(X[selected_features_rfe], y.apply(lambda x: np.log(x+1)))
 
 y_pred_lm_elastic = lm_elastic.predict(X_test[selected_features_rfe])
 y_pred_lm_elastic = np.exp(y_pred_lm_elastic)-1
-print('ElasticNet with RFE feature selection',
+print('ElasticNet with selected_features_rfe on log(time_to_failure + 1)',
       mean_absolute_error(y_test, y_pred_lm_elastic), mean_squared_error(y_test, y_pred_lm_elastic))
 
 #######################################
@@ -168,17 +168,17 @@ print('ElasticNet with RFE feature selection',
 
 # Using best parameters for MAE and Overfitting:
 # rf = RandomForestRegressor(n_estimators=30, criterion='mae', max_depth=7, n_jobs=-1, min_impurity_decrease=0)
-# rf.fit(X[feat_imp.feat_name.values[:50]], y)
-
+# rf.fit(X[feat_imp.feat_name.values[:50]], y, verbose=2)
+#
 # X_test, y_test = df_test.drop('time_to_failure', axis=1), df_test.time_to_failure
-# y_pred_rf = rf.predict(X_test[feat_imp.feat_name.values[:50]])
+# y_pred_rf = rf.predict(X_test[selected_features_rf_50])
 # pd.DataFrame(y_pred_rf).to_csv("y_pred_rf.csv")
 y_pred_rf = pd.read_csv("y_pred_rf.csv")['0']
 
 print('RandomForest Regressor with 50 Best features',
       mean_absolute_error(y_test, y_pred_rf), mean_squared_error(y_test, y_pred_rf))
 
-plot_error_repartition(y_test, y_pred_rf, 'RandomForest_30', save=True)
+plot_error_repartition(y_test, y_pred_rf, model_name='RandomForest_30', save=True)
 
 # Train SVM on Best 50 features:
 
@@ -196,7 +196,7 @@ grid_search_svr = GridSearchCV(SVR(),
                                verbose=2,
                                n_jobs=-1)
 
-grid_search_svr.fit(X[feat_imp.feat_name.values[:50]], y)
+grid_search_svr.fit(X[selected_features_rf_50], y)
 grid_searchCV_results_svr = grid_search_svr.cv_results_
 
 w = csv.writer(open("grid_searchCV_results_svr.csv", "w"))

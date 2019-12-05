@@ -106,7 +106,7 @@ def plot_error_repartition(trues, preds, show=True, model_name="", save=False):
     plt.legend()
     plt.title("Absolute error repartition for {model_name}".format(model_name=model_name))
     if save:
-        plt.savefig("Absolute error repartition for {model_name}".format(model_name=model_name))
+        plt.savefig("Absolute error repartition for {model_name}.png".format(model_name=model_name))
     if show:
         plt.show()
 
