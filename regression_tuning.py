@@ -51,7 +51,7 @@ print('selected kbest features:', selected_features_kbest)
 # feat_imp = pd.DataFrame(X.columns, columns=['feat_name'])
 # feat_imp['imp'] = rf.feature_importances_
 # feat_imp.to_csv("rf_feat_importance.csv")
-feat_imp = pd.read_csv("rf_feat_importance.csv")
+feat_imp = pd.read_csv("regression_results_and_plots/rf_feat_importance.csv")
 feat_imp.sort_values(by='imp', ascending=False, inplace=True)
 
 plt.plot(feat_imp.imp.values.cumsum())
@@ -173,24 +173,25 @@ print('ElasticNet with selected_features_rfe on log(time_to_failure + 1)',
 # X_test, y_test = df_test.drop('time_to_failure', axis=1), df_test.time_to_failure
 # y_pred_rf = rf.predict(X_test[selected_features_rf_50])
 # pd.DataFrame(y_pred_rf).to_csv("y_pred_rf.csv")
-y_pred_rf = pd.read_csv("y_pred_rf.csv")['0']
+y_pred_rf = pd.read_csv("regression_results_and_plots/y_pred_rf.csv")['0']
 
 print('RandomForest Regressor with 50 Best features',
       mean_absolute_error(y_test, y_pred_rf), mean_squared_error(y_test, y_pred_rf))
 
 plot_error_repartition(y_test, y_pred_rf, model_name='RandomForest_30', save=True)
 
-# Train SVM on Best 50 features:
 
 #####  #        #  ######
 #       #      #   #     #
 ####     #    #    ######
    #      #  #     #    ##
 ####       ##      #    ##
-# svr_params = {'kernel': ['sigmoid', 'poly'], 'gamma': ['scale'], 'C': [0.5, 1, 1.5]}
+
+
+# svr_params = {'kernel': ['sigmoid', 'poly', 'rbf'], 'gamma': ['scale'], 'C': [0.5, 1, 1.5]}
 # grid_search_svr = GridSearchCV(SVR(),
 #                                svr_params,
-#                                scoring=['neg_mean_absolute_error', 'neg_mean_squared_error'],
+#                                scoring=['neg_mean_absolute_error'],
 #                                refit='neg_mean_absolute_error',
 #                                cv=5,
 #                                verbose=2,
@@ -198,14 +199,16 @@ plot_error_repartition(y_test, y_pred_rf, model_name='RandomForest_30', save=Tru
 #
 # grid_search_svr.fit(X[selected_features_rf_50], y)
 # grid_searchCV_results_svr = grid_search_svr.cv_results_
-# pd.DataFrame(grid_searchCV_results_svr).to_csv("grid_searchCV_results_svr.csv")
-# grid_searchCV_results_svr = pd.read_csv("grid_searchCV_results_svr.csv")
+# pd.DataFrame(grid_searchCV_results_svr).to_csv("regression_results_and_plots/grid_searchCV_results_svr.csv")
+# grid_searchCV_results_svr = pd.read_csv("regression_results_and_plots/grid_searchCV_results_svr.csv")
 #
-# svr = SVR(kernel='poly', gamma='scale', C=1.5)
-# svr.fit(X[selected_features_rf_50], y)
-# y_pred_svr = svr.predict(X_test[selected_features_rf_50])
-# pd.DataFrame(y_pred_svr).to_csv('y_pred_svr.csv')
-y_pred_svr = pd.read_csv('y_pred_svr.csv')['0']
+# best_svr_params = grid_search_svr.best_params_
+
+svr = SVR(**best_svr_params)
+svr.fit(X[selected_features_rf_50], y)
+y_pred_svr = svr.predict(X_test[selected_features_rf_50])
+pd.DataFrame(y_pred_svr).to_csv('regression_results_and_plots/y_pred_svr.csv')
+y_pred_svr = pd.read_csv('regression_results_and_plots/y_pred_svr.csv')['0']
 print('SVR with 50 best feature', mean_absolute_error(y_test, y_pred_svr), mean_squared_error(y_test, y_pred_svr))
 plot_error_repartition(y_test, y_pred_svr, model_name='SVR', save=True)
 
@@ -269,4 +272,4 @@ plot_error_repartition(y_test, y_pred_xgb, model_name='XGB', save=True)
 plot_error_repartition(y_test, y_pred_xgb_weighted, model_name='XGB weighted', save=True)
 
 
-residual_dual_plot(y_test, y_pred_xgb_weighted)
+residual_quadra_plot(y_test, y_pred_xgb_weighted)
