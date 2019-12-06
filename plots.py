@@ -114,8 +114,7 @@ def plot_3d_lifetime_paths(train):
     plt.show()
 
 
-def plot_error_repartition(trues, preds, show=True):
-    plt.grid()
+def plot_error_repartition(trues, preds, show=True, model_name="", save=False):
     errors = OrderedDict.fromkeys(sorted(set(trues)))
     for i in set(trues):
         errors[i] = []
@@ -126,7 +125,9 @@ def plot_error_repartition(trues, preds, show=True):
     plt.xlabel('True TTF values')
     plt.ylabel('Absolute error')
     plt.legend()
-    plt.title("Absolute error repartition")
+    plt.title("Absolute error repartition for {model_name}".format(model_name=model_name))
+    if save:
+        plt.savefig("regression_results_and_plots/Absolute error repartition for {model_name}.png".format(model_name=model_name))
     if show:
         plt.show()
 
