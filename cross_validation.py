@@ -9,6 +9,7 @@ import warnings
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
+
 def split_engines_for_cv(train, n_folds=5):
     """
     Splits engines into n_folds folds for cross-validation
@@ -38,6 +39,7 @@ def split_engines_for_cv(train, n_folds=5):
                  (np.array(split_indices[i]))) for i in range(n_folds)]
 
     return cv_folds
+
 
 if __name__ == '__main__':
     train_df = pd.read_csv('feature_engineered_train.csv').set_index('id')
