@@ -300,8 +300,18 @@ def huber_approx_obj(preds, dtrain):
 
 # define a loss that is MSE if time to failure is small (<50), and MAE otherwise.
 def custom_loss_train(y_pred, y_true):
-    grad = np.where(y_true < 50, huber_approx_obj(y_pred, y_true)[0], (huber_approx_obj(y_pred, y_true)[0])**2)
-    hess = np.where(y_true < 50, huber_approx_obj(y_pred, y_true)[1], (huber_approx_obj(y_pred, y_true)[1])*2)
+    grad = np.where(y_true < 50, (huber_approx_obj(y_pred, y_true)[0])**2, huber_approx_obj(y_pred, y_true)[0])
+    hess = np.where(y_true < 50, huber_approx_obj(y_pred, y_true)[1]*2, huber_approx_obj(y_pred, y_true)[1])
+    return grad, hess
+
+def custom_loss_treshold_50(y_pred, y_true):
+    grad = np.where(y_true < 50, 2.5*(y_true-y_pred), 1)
+    hess = np.where(y_true < 50, 2.5, 0)
+    return grad, hess
+
+def custom_loss_treshold_75(y_pred, y_true):
+    grad = np.where(y_true < 75, 2.5*(y_true-y_pred), 1)
+    hess = np.where(y_true < 75, 2.5, 0)
     return grad, hess
 
 
@@ -323,12 +333,11 @@ def custom_loss_train(y_pred, y_true):
 # grid_search_xgb_results = pd.read_csv("regression_results_and_plots/grid_search_xgb_results_custom_with_depth3_4.csv")
 
 y_pred_xgb = pd.DataFrame()
-
-for obj in [huber_approx_obj, custom_loss_train, 'reg:gamma', 'reg:tweedie', 'reg:squarederror']:
+for obj in [custom_loss_treshold_50, custom_loss_treshold_75, 'reg:gamma', 'reg:tweedie', 'reg:squarederror']:
     if obj == huber_approx_obj:
-        XGB = xgb.XGBRegressor(max_depth=3, objective=obj, n_estimators=200)
+        XGB = xgb.XGBRegressor(max_depth=3, objective=obj, n_estimators=200, n_jobs=-1)
     else:
-        XGB = xgb.XGBRegressor(max_depth=3, objective=obj, n_estimators=100)
+        XGB = xgb.XGBRegressor(max_depth=3, objective=obj, n_estimators=100, n_jobs=-1)
     XGB.fit(X, y, verbose=2)
     y_pred = XGB.predict(X_test)
     if callable(obj):
@@ -338,16 +347,8 @@ for obj in [huber_approx_obj, custom_loss_train, 'reg:gamma', 'reg:tweedie', 're
     y_pred_xgb[obj_name] = y_pred
     print("XGB with {objective}".format(objective=obj),
           mean_absolute_error(y_test, y_pred), mean_squared_error(y_test, y_pred))
-    residual_quadra_plot(y_test, y_pred, model_name="XGB with {objective}".format(objective=obj), save=False)
-
+    residual_quadra_plot(y_test, y_pred, model_name="XGB with {obj_name}".format(obj_name=obj_name), save=False)
 y_pred_xgb.to_csv("regression_results_and_plots/y_pred_xgb_5_obj.csv")
-
-xgb_reg_all_features = xgb.XGBRegressor(**xg_params)
-xgb_reg_all_features.fit(X, y, verbose=2, eval_set=[(X, y), (X_test, y_test)], eval_metric='logloss')
-y_pred_xgb_all_features = xgb_reg_all_features.predict(X_test)
-print('XGB all features', mean_absolute_error(y_test, y_pred_xgb_all_features),
-      mean_squared_error(y_test, y_pred_xgb_all_features))
-
 
 
 feat_imp_xgb = pd.DataFrame(X.columns, columns=['feat_name'])
