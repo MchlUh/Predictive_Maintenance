@@ -21,23 +21,26 @@ X_test, y_test = df_test.drop('time_to_failure', axis=1), df_test.time_to_failur
 
 
 # Recursive feature elimination
-# Check sklearn RFECV docs
-rfe = RFECV(LinearRegression(), scoring='neg_mean_absolute_error', cv=5)
-rfe.fit(X, y)
-selected_features_rfe = [X.columns[i] for i in range(X.shape[1]) if rfe.get_support()[i]]
-print('selected RFECV features:', selected_features_rfe)
+# rfe = RFECV(LinearRegression(), scoring='neg_mean_absolute_error', cv=5)
+# rfe.fit(X, y)
+# selected_features_rfe = [X.columns[i] for i in range(X.shape[1]) if rfe.get_support()[i]]
+# print('selected RFECV features:', selected_features_rfe)
+# pd.DataFrame(selected_features_rfe).to_csv("regression_results_and_plots/selected_features_rfe.csv")
 
-# --> Keeps 167 features out of 170.  Not helpfull.
+selected_features_rfe = pd.read_csv("regression_results_and_plots/selected_features_rfe.csv")['0']
+selected_features_rfe = selected_features_rfe.values
+
+# --> Keeps 167 features out of 170.  Not very helpfull.
 # Also, do not account for interaction between features as uses linear regression.
 
 
 # Select k most relevant features
 # Play around with K to see which number of features is best
 # Statistical Analysis of features.
-kbest = SelectKBest(k=100)
-kbest.fit(X, y)
-selected_features_kbest = [X.columns[i] for i in range(X.shape[1]) if kbest.get_support()[i]==True]
-print('selected kbest features:', selected_features_kbest)
+# kbest = SelectKBest(k=100)
+# kbest.fit(X, y)
+# selected_features_kbest = [X.columns[i] for i in range(X.shape[1]) if kbest.get_support()[i]==True]
+# print('selected kbest features:', selected_features_kbest)
 
 
 # Much more advanced feature selection, using a Recursive feature elimination based on a RandomForest Regressor.
@@ -55,6 +58,7 @@ feat_imp.sort_values(by='imp', ascending=False, inplace=True)
 
 plt.plot(feat_imp.imp.values.cumsum())
 plt.grid()
+# plt.savefig("regression_results_and_plots/cumulated feature importance random forest")
 plt.show()
 
 plt.plot(feat_imp.imp.values[25:].cumsum())
@@ -72,29 +76,33 @@ selected_features_rf_25 = feat_imp.feat_name.values[:25]
 ############
 #
 
-lin_reg = LinearRegression()
-lin_reg.fit(X, y)
+# lin_reg = LinearRegression()
+# lin_reg.fit(X, y)
+#
+# y_pred_lm = lin_reg.predict(X_test)
+# print('Linear Regression',
+#       mean_absolute_error(y_test, y_pred_lm), mean_squared_error(y_test, y_pred_lm))
+# # Linear Regression 37.2388022132974 2286.8191973408284
+#
+#
+# # Train LinearRegression on RFE features
+# lin_reg = LinearRegression()
+# lin_reg.fit(X[selected_features_rfe], y)
+# y_pred_lm = lin_reg.predict(X_test[selected_features_rfe])
+# pd.DataFrame(y_pred_lm).to_csv("regression_results_and_plots/y_pred_lm.csv")
+y_pred_lm = pd.read_csv("regression_results_and_plots/y_pred_lm.csv")['0']
 
-y_pred_lm = lin_reg.predict(X_test)
-print('Linear Regression',
-      mean_absolute_error(y_test, y_pred_lm), mean_squared_error(y_test, y_pred_lm))
-# Linear Regression 37.2388022132974 2286.8191973408284
-
-
-# Train LinearRegression on RFE features
-lin_reg = LinearRegression()
-lin_reg.fit(X[selected_features_rfe], y)
-
-y_pred_lm = lin_reg.predict(X_test[selected_features_rfe])
 print('Linear Regression with RFE feature selection',
       mean_absolute_error(y_test, y_pred_lm), mean_squared_error(y_test, y_pred_lm))
 # Linear Regression with RFE feature selection 14.142734642572869 319.7344583322316
+
+
 # cv_scores_lin_reg = cross_val_score(lin_reg, X[selected_features_rfe], y, scoring='neg_mean_absolute_error', cv=5, n_jobs=-1)
 # cv_scores_lin_reg = array([-12.17061674, -11.10523918, -12.81084418, -12.70238884, -12.9531474 ])
 # --> Overfitting
 
-plot_error_repartition(y_test, y_pred_lm, model_name='Linear Regression', save=True)
-residual_quadra_plot(y_test, y_pred_lm)
+# plot_error_repartition(y_test, y_pred_lm, model_name='Linear Regression', save=True)
+residual_quadra_plot(np.array(y_test), np.array(y_pred_lm), model_name='Linear Regression', save=False)
 
 #####  #   #
 ##     ##  #
@@ -125,17 +133,21 @@ residual_quadra_plot(y_test, y_pred_lm)
 #       mean_absolute_error(y_test, y_pred_lm_elasticCV), mean_squared_error(y_test, y_pred_lm_elasticCV))
 # 16.789624747721206 441.04810419595884
 #
-lm_elastic_params = {'alpha': 0.00031142146133688865,
- 'l1_ratio': 1,
- 'max_iter': 50000}
-
+# lm_elastic_params = {'alpha': 0.00031142146133688865,
+#  'l1_ratio': 1,
+#  'max_iter': 50000}
+#
 # lm_elastic = ElasticNet().set_params(**lm_elastic_params)
 # lm_elastic.fit(X, y)
-
+#
 # y_pred_lm_elastic = lm_elastic.predict(X_test)
-# print('ElasticNet with selected_features_rfe',
-#       mean_absolute_error(y_test, y_pred_lm_elastic), mean_squared_error(y_test, y_pred_lm_elastic))
+# pd.DataFrame(y_pred_lm_elastic).to_csv("regression_results_and_plots/y_pred_lm_elastic.csv")
+y_pred_lm_elastic = pd.read_csv("regression_results_and_plots/y_pred_lm_elastic.csv")['0']
+print('ElasticNet',
+      mean_absolute_error(y_test, y_pred_lm_elastic), mean_squared_error(y_test, y_pred_lm_elastic))
 # ElasticNet 16.411964629811976 430.32060553752626
+residual_quadra_plot(np.array(y_test), np.array(y_pred_lm_elastic), model_name='ElasticNet', save=False)
+
 
 # lm_elastic_rfe.fit(X[selected_features_rfe], y)
 # y_pred_lm_elastic_rfe = lm_elastic_rfe.predict(X_test[selected_features_rfe])
@@ -161,7 +173,7 @@ y_pred_lm_elastic_log = pd.read_csv("regression_results_and_plots/y_pred_lm_elas
 print('ElasticNet with selected_features_rfe on log(time_to_failure + 1)',
       mean_absolute_error(y_test, y_pred_lm_elastic_log), mean_squared_error(y_test, y_pred_lm_elastic_log))
 # 17.235873705938257 505.43806961537985
-residual_quadra_plot(np.array(y_test), np.array(y_pred_lm_elastic_log), model_name='ElasticNet on log(RUL+1)', save=True)
+residual_quadra_plot(np.array(y_test), np.array(y_pred_lm_elastic_log), model_name='ElasticNet on log(RUL+1)', save=False)
 
 
 #######################################
@@ -195,6 +207,28 @@ residual_quadra_plot(np.array(y_test), np.array(y_pred_lm_elastic_log), model_na
 # grid_searchCV_results_rf = pd.DataFrame(grid_searchCV_results_rf)
 # grid_searchCV_results_rf.to_csv("grid_searchCV_results_rf.csv")
 
+grid_searchCV_results_rf = pd.read_csv("regression_results_and_plots/grid_searchCV_results_rf.csv")
+grid_searchCV_results_rf = pd.DataFrame(grid_searchCV_results_rf)
+grid_searchCV_results_rf
+
+
+cols = ['param_criterion', 'param_max_depth',
+       'param_min_impurity_decrease', 'param_n_estimators',
+       'mean_test_neg_mean_absolute_error', 'std_test_neg_mean_absolute_error',
+       'rank_test_neg_mean_absolute_error',
+       'rank_test_neg_mean_squared_error']
+new_cols = ['criterion', 'max depth',
+       'min impurity decrease', 'n estimators',
+       'mean mae', 'std mae',
+       'rank mae',
+       'rank mse']
+grid_searchCV_results_rf = grid_searchCV_results_rf[cols]
+grid_searchCV_results_rf.columns = new_cols
+grid_searchCV_results_rf[['mean mae', 'std mae']] = grid_searchCV_results_rf[['mean mae', 'std mae']].round(2)
+
+render_mpl_table(grid_searchCV_results_rf, header_columns=0, col_width=2.1)
+# plt.savefig("regression_results_and_plots/grid_searchCV_results_rf")
+plt.show()
 
 # Using best parameters for MAE and Overfitting:
 # rf = RandomForestRegressor(n_estimators=30, criterion='mae',
@@ -208,9 +242,10 @@ y_pred_rf = pd.read_csv("regression_results_and_plots/y_pred_rf.csv")['0']
 
 print('RandomForest Regressor with 50 Best features',
       mean_absolute_error(y_test, y_pred_rf), mean_squared_error(y_test, y_pred_rf))
+# 14.278511610897787 396.8144270128604
 
-plot_error_repartition(y_test, y_pred_rf, model_name='RandomForest_30', save=True)
-residual_quadra_plot(y_test, y_pred_rf)
+plot_error_repartition(y_test, y_pred_rf, model_name='RandomForest', save=False)
+residual_quadra_plot(np.array(y_test), np.array(y_pred_rf), model_name="Random Forest", save=False)
 
 
 #####  #        #  ######
@@ -235,15 +270,16 @@ residual_quadra_plot(y_test, y_pred_rf)
 # grid_searchCV_results_svr = pd.read_csv("regression_results_and_plots/grid_searchCV_results_svr.csv")
 #
 # best_svr_params = grid_search_svr.best_params_
-best_svr_params = {'kernel': 'rbf'}
-svr = SVR(**best_svr_params)
-svr.fit(X[selected_features_rf_50], y)
-y_pred_svr = svr.predict(X_test[selected_features_rf_50])
-pd.DataFrame(y_pred_svr).to_csv('regression_results_and_plots/y_pred_svr.csv')
+# best_svr_params = {'kernel': 'rbf'}
+# svr = SVR(**best_svr_params)
+# svr.fit(X[selected_features_rf_50], y)
+# y_pred_svr = svr.predict(X_test[selected_features_rf_50])
+# pd.DataFrame(y_pred_svr).to_csv('regression_results_and_plots/y_pred_svr.csv')
 y_pred_svr = pd.read_csv('regression_results_and_plots/y_pred_svr.csv')['0']
 print('SVR with 50 best feature', mean_absolute_error(y_test, y_pred_svr), mean_squared_error(y_test, y_pred_svr))
-plot_error_repartition(y_test, y_pred_svr, model_name='SVR', save=True)
-# residual_quadra_plot(y_test, y_pred_svr)
+# 19.71195007675904 711.9330696763042
+# plot_error_repartition(y_test, y_pred_svr, model_name='SVR', save=True)
+residual_quadra_plot(np.array(y_test), np.array(y_pred_svr), model_name="SVR", save=True)
 
 ##      ##    ######
   ##  ##     #
@@ -263,17 +299,48 @@ def huber_approx_obj(preds, dtrain):
 
 
 # define a loss that is MSE if time to failure is small (<50), and MAE otherwise.
-def custom_loss_train(y_true, y_pred):
-    grad = np.where(y_true < 50, huber_approx_obj(y_pred, y_true)[0], 2*(y_true - y_pred))
-    hess = np.where(y_true < 50, huber_approx_obj(y_pred, y_true)[1], 2)
+def custom_loss_train(y_pred, y_true):
+    grad = np.where(y_true < 50, huber_approx_obj(y_pred, y_true)[0], (huber_approx_obj(y_pred, y_true)[0])**2)
+    hess = np.where(y_true < 50, huber_approx_obj(y_pred, y_true)[1], (huber_approx_obj(y_pred, y_true)[1])*2)
     return grad, hess
 
 
+# xg_params = {'max_depth': [3, 4, 7],
+#              'objective': [huber_approx_obj, custom_loss_train, 'reg:gamma', 'reg:tweedie', 'reg:squarederror']
+#              'n_estimators': [50, 100, 200]
+#              }
+# #  'objective': [huber_approx_obj, custom_loss_train, 'reg:gamma', 'reg:tweedie', 'reg:squarederror']
+# XGB = xgb.XGBRegressor()
+# grid_search_xgb = GridSearchCV(XGB,
+#                                xg_params,
+#                                scoring='neg_mean_absolute_error',
+#                                cv=5,
+#                                verbose=2,
+#                                n_jobs=-1)
+# grid_search_xgb.fit(X, y)
+#
+# pd.DataFrame(grid_search_xgb.cv_results_).to_csv("regression_results_and_plots/grid_search_xgb_results_custom_with_depth3_4.csv")
+# grid_search_xgb_results = pd.read_csv("regression_results_and_plots/grid_search_xgb_results_custom_with_depth3_4.csv")
 
+y_pred_xgb = pd.DataFrame()
 
-xg_params = {'max_depth': [2,3,4,5], 'objective': [huber_approx_obj, 'reg:gamma', 'reg:tweedie', 'reg:squarederror'}
+for obj in [huber_approx_obj, custom_loss_train, 'reg:gamma', 'reg:tweedie', 'reg:squarederror']:
+    if obj == huber_approx_obj:
+        XGB = xgb.XGBRegressor(max_depth=3, objective=obj, n_estimators=200)
+    else:
+        XGB = xgb.XGBRegressor(max_depth=3, objective=obj, n_estimators=100)
+    XGB.fit(X, y, verbose=2)
+    y_pred = XGB.predict(X_test)
+    if callable(obj):
+        obj_name = obj.__name__
+    else:
+        obj_name = obj
+    y_pred_xgb[obj_name] = y_pred
+    print("XGB with {objective}".format(objective=obj),
+          mean_absolute_error(y_test, y_pred), mean_squared_error(y_test, y_pred))
+    residual_quadra_plot(y_test, y_pred, model_name="XGB with {objective}".format(objective=obj), save=False)
 
-grid_srch_xgb = GridSearchCV(xgb.XGBRegressor(), xg_params)
+y_pred_xgb.to_csv("regression_results_and_plots/y_pred_xgb_5_obj.csv")
 
 xgb_reg_all_features = xgb.XGBRegressor(**xg_params)
 xgb_reg_all_features.fit(X, y, verbose=2, eval_set=[(X, y), (X_test, y_test)], eval_metric='logloss')
@@ -357,7 +424,7 @@ plot_error_repartition(y_test, y_pred_xgb, model_name='XGB', save=True)
 plot_error_repartition(y_test, y_pred_xgb_weighted, model_name='XGB weighted', save=True)
 plot_error_repartition(y_test, y_pred_xgb_all_features, model_name='XGB all features', save=True)
 
-residual_quadra_plot(y_test, y_pred_xgb)
-residual_quadra_plot(y_test, y_pred_xgb_weighted)
-residual_quadra_plot(y_test, y_pred_xgb_all_features)
+residual_quadra_plot(y_test, y_pred_xgb, model_name='XGB', save=True)
+residual_quadra_plot(y_test, y_pred_xgb_weighted, model_name='XGB weighted', save=True)
+residual_quadra_plot(y_test, y_pred_xgb_all_features, model_name='XGB all features', save=True)
 
