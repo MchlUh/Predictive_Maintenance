@@ -44,7 +44,7 @@ y_pred = log_reg.predict(X_test[selected_features_kbest])
 print('Logistic regression performance on Kbest features: \n', classification_report(y_test, y_pred))
 
 
-# Feature selection with recursive feature elimination
+# Feature selection with recursive feature elimination. Uncomment to perform again
 # rfecv = RFECV(LogisticRegression(), scoring='f1')
 # rfecv.fit(X, y)
 # selected_features_rfe_log_reg = [X.columns[i] for i in range(X.shape[1]) if rfecv.get_support()[i]==True]
@@ -77,11 +77,9 @@ plot_classification_report(y_test, y_pred, time_to_failure_test, name='Logistic 
 
 
 # KNN
-knn_pipe = Pipeline(steps=[('kbest', SelectKBest()),
-                           ('lda', LinearDiscriminantAnalysis()),
+knn_pipe = Pipeline(steps=[('lda', LinearDiscriminantAnalysis()),
                            ('knn', KNeighborsClassifier())])
 grid_params = {
-    'kbest__k': range(10, 36),
     'knn__n_neighbors': range(5, 20)
 }
 knn_grid = RandomizedSearchCV(knn_pipe, grid_params, n_iter=10)

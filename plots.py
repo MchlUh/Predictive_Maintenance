@@ -8,7 +8,7 @@ from statsmodels.graphics.correlation import plot_corr
 from statsmodels.tsa.filters import hp_filter
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, roc_curve, auc, f1_score
 from seaborn import heatmap
 
 plt.style.use('seaborn')
@@ -209,5 +209,20 @@ def plot_classification_report(trues, preds, time_to_failure, name=''):
     plt.ylabel('Count')
 
     plt.tight_layout()
-    fig.suptitle('Classification report {}'.format(name))
+    fig.suptitle('Classification report {}: macro f1 {}'.format(name, np.round(f1_score(trues, preds, average='macro'), decimals=2)))
     plt.show()
+
+
+def plot_roc_curve(trues, preds_proba, show=True):
+    fpr, tpr, threshold = roc_curve(trues, preds_proba)
+    roc_auc = auc(fpr, tpr)
+    plt.title('Receiver Operating Characteristic')
+    plt.plot(fpr, tpr, 'b', label='AUC = %0.2f' % roc_auc)
+    plt.legend(loc='lower right')
+    plt.plot([0, 1], [0, 1], 'r--')
+    plt.xlim([0, 1])
+    plt.ylim([0, 1])
+    plt.ylabel('True Positive Rate')
+    plt.xlabel('False Positive Rate')
+    if show:
+        plt.show()
