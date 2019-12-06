@@ -168,8 +168,9 @@ def hist_residuals(trues, preds, show=True):
         plt.show()
 
 
-def residual_quadra_plot(trues, preds, show=True):
+def residual_quadra_plot(trues, preds, show=True, model_name="", save=False):
     fig = plt.figure()
+    fig.suptitle("{model_name}".format(model_name=model_name), fontsize=10)
     fig.add_subplot(221)
     plot_residuals(trues, preds, show=False)
     fig.add_subplot(222)
@@ -178,8 +179,11 @@ def residual_quadra_plot(trues, preds, show=True):
     residuals_zoom(trues, preds, max_TTF=30, show=False)
     fig.add_subplot(224)
     plot_error_repartition(trues, preds, show=False)
+    if save:
+        plt.savefig("regression_results_and_plots/Quadraplot for {model_name}".format(model_name=model_name))
     if show:
         plt.show()
+
 
 
 def plot_classification_report(trues, preds, time_to_failure, name=''):

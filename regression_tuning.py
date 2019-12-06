@@ -153,13 +153,15 @@ lm_elastic_params = {'alpha': 0.00031142146133688865,
 # lm_elastic_log = ElasticNet().set_params(**lm_elastic_params)
 # lm_elastic_log.fit(X, y.apply(lambda x: np.log(x+1)))
 
-y_pred_lm_elastic_log = lm_elastic_log.predict(X_test)
-y_pred_lm_elastic_log = np.exp(y_pred_lm_elastic_log)-1
+# y_pred_lm_elastic_log = lm_elastic_log.predict(X_test)
+# y_pred_lm_elastic_log = np.exp(y_pred_lm_elastic_log)-1
+# pd.DataFrame(y_pred_lm_elastic_log).to_csv("regression_results_and_plots/y_pred_lm_elastic_log.csv")
+y_pred_lm_elastic_log = pd.read_csv("regression_results_and_plots/y_pred_lm_elastic_log.csv")['0']
 
 print('ElasticNet with selected_features_rfe on log(time_to_failure + 1)',
       mean_absolute_error(y_test, y_pred_lm_elastic_log), mean_squared_error(y_test, y_pred_lm_elastic_log))
 # 17.235873705938257 505.43806961537985
-residual_quadra_plot(y_test, y_pred_lm_elastic_log)
+residual_quadra_plot(np.array(y_test), np.array(y_pred_lm_elastic_log), model_name='ElasticNet on log(RUL+1)', save=True)
 
 
 #######################################
