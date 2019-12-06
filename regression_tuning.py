@@ -16,6 +16,9 @@ import json
 df_train = pd.read_csv('feature_engineered_train.csv').set_index('id')
 df_test = pd.read_csv('feature_engineered_test.csv').set_index('id')
 
+# df_train_not_capped = pd.read_csv('feature_engineered_train_not_capped.csv').set_index('id')
+# df_test_not_capped = pd.read_csv('feature_engineered_test_not_capped.csv').set_index('id')
+
 X, y = df_train.drop('time_to_failure', axis=1), df_train.time_to_failure
 X_test, y_test = df_test.drop('time_to_failure', axis=1), df_test.time_to_failure
 
@@ -314,6 +317,11 @@ def custom_loss_treshold_75(y_pred, y_true):
     hess = np.where(y_true < 75, 2.5, 0)
     return grad, hess
 
+def custom_loss(y_pred, y_true):
+    grad = np.where((y_true-y_pred) < 75, 2.5*(y_true-y_pred), 1)
+    hess = np.where((y_true-y_pred) < 75, 2.5, 0)
+    return grad, hess
+
 
 # xg_params = {'max_depth': [3, 4, 7],
 #              'objective': [huber_approx_obj, custom_loss_train, 'reg:gamma', 'reg:tweedie', 'reg:squarederror']
@@ -333,7 +341,8 @@ def custom_loss_treshold_75(y_pred, y_true):
 # grid_search_xgb_results = pd.read_csv("regression_results_and_plots/grid_search_xgb_results_custom_with_depth3_4.csv")
 
 y_pred_xgb = pd.DataFrame()
-for obj in [custom_loss_treshold_50, custom_loss_treshold_75, 'reg:gamma', 'reg:tweedie', 'reg:squarederror']:
+
+for obj in [custom_loss_treshold_50, custom_loss_treshold_75, custom_loss, 'reg:gamma', 'reg:tweedie', 'reg:squarederror']:
     if obj == huber_approx_obj:
         XGB = xgb.XGBRegressor(max_depth=3, objective=obj, n_estimators=200, n_jobs=-1)
     else:
@@ -347,85 +356,68 @@ for obj in [custom_loss_treshold_50, custom_loss_treshold_75, 'reg:gamma', 'reg:
     y_pred_xgb[obj_name] = y_pred
     print("XGB with {objective}".format(objective=obj),
           mean_absolute_error(y_test, y_pred), mean_squared_error(y_test, y_pred))
-    residual_quadra_plot(y_test, y_pred, model_name="XGB with {obj_name}".format(obj_name=obj_name), save=False)
+    residual_quadra_plot(y_test, y_pred, model_name="XGB with {obj_name}".format(obj_name=obj_name), save=True)
 y_pred_xgb.to_csv("regression_results_and_plots/y_pred_xgb_5_obj.csv")
 
+# XGB with custom_loss_treshold_50 30.93 1680
+# XGB with custom_loss_treshold_75 29.60 1435
+# XGB with custom_loss             12.48 257
+# XGB with reg:gamma               13.64 292
+# XGB with reg:tweedie             12.25 253
+# XGB with reg:squarederror        12.44 256
 
-feat_imp_xgb = pd.DataFrame(X.columns, columns=['feat_name'])
-feat_imp_xgb['imp'] = xgb_reg_50.feature_importances_
-selected_features_xgb_35 = feat_imp_xgb.sort_values(by='imp')
+#
+# sample_weights = np.where(
+#     y <= 10, 100*10, np.where(
+#         y <= 20, 25*5, np.where(
+#             y <= 30, 10*4, np.where(
+#                 y <= 40, 7*3, np.where(
+#                     y <= 50, 2, np.where(
+#                         y <= 100, 1, 0.1
+#                     ))))))
+#
+# xgb_reg_weighted_tweedie = xgb.XGBRegressor(max_depth=3, objective='reg:tweedie', n_estimators=200, n_jobs=-1)
+# xgb_reg_weighted_tweedie.fit(X, y, verbose=2, sample_weight=sample_weights)
+# y_pred_weighted_tweedie = xgb_reg_weighted_tweedie.predict(X_test)
+# pd.DataFrame(y_pred_weighted_tweedie).to_csv("regression_results_and_plots/y_pred_weighted_tweedie.csv")
+y_pred_weighted_tweedie = np.array(pd.read_csv("regression_results_and_plots/y_pred_weighted_tweedie.csv")['0'])
+print("XGB weighted tweedie", mean_absolute_error(y_test, y_pred_weighted_tweedie), mean_squared_error(y_test, y_pred_weighted_tweedie))
+# XGB weighted tweedie 30.674529933824818 1384.2559447988936
+residual_quadra_plot(y_test, y_pred_weighted_tweedie, model_name="XGB weighted tweedie", save=True)
 
+# xgb_reg_weighted_squarederror = xgb.XGBRegressor(max_depth=3, objective='reg:squarederror', n_estimators=200, n_jobs=-1)
+# xgb_reg_weighted_squarederror.fit(X, y, verbose=2, sample_weight=sample_weights)
+# y_pred_weighted_squarederror = xgb_reg_weighted_squarederror.predict(X_test)
+# pd.DataFrame(y_pred_weighted_squarederror).to_csv("regression_results_and_plots/y_pred_weighted_squarederror.csv")
+y_pred_weighted_squarederror = np.array(pd.read_csv("regression_results_and_plots/y_pred_weighted_squarederror.csv")['0'])
+print("XGB weighted squarederror", mean_absolute_error(y_test, y_pred_weighted_squarederror), mean_squared_error(y_test, y_pred_weighted_squarederror))
+# XGB weighted sqarederror 16.108829582672623 436.2950446098589
+residual_quadra_plot(y_test, y_pred_weighted_squarederror, model_name="XGB weighted squarederror", save=True)
 
-sample_weights = np.where(
-    y <= 10, 100*10, np.where(
-        y <= 20, 25*5, np.where(
-            y <= 30, 10*4, np.where(
-                y <= 40, 7*3, np.where(
-                    y <= 50, 2, np.where(
-                        y <= 100, 1, 0.1
-                    ))))))
+#
+# cv_scores_xgb = cross_val_score(
+#     xgb_reg_weighted, X, y, scoring='neg_mean_absolute_error', cv=2, n_jobs=-1, verbose=2)
+# # array([ -9.93397797, -12.24655596])
+#
+# # With 5 folds:
+# cv_scores_xgb = cross_val_score(
+#     xgb_reg_weighted, X, y, scoring='neg_mean_absolute_error', cv=5, n_jobs=-1, verbose=2)
+# # cv_scores_xgb_50_features = array([ -9.04913295,  -9.29853543,  -9.3275443 , -11.59707833, -11.53495859])
+#
+# plt.plot(-np.sort(-xgb_reg_weighted.feature_importances_).cumsum())
+# plt.show()
+# # --> Let's keep the 100 most important features for XG boost, who account for more than 99% of the importance.
+# selected_features_xgb_100 = pd.DataFrame(data=X.columns.values, columns=['feat_names'])
+# selected_features_xgb_100['feat_imp'] = xgb_reg_weighted.feature_importances_
+# selected_features_xgb_100.sort_values(by='feat_imp')
+# selected_features_xgb_100 = selected_features_xgb_100.feat_names[:100]
+# selected_features_xgb_75 = selected_features_xgb_100[:75]
+#
+# cv_scores_xgb = cross_val_score(
+#     xgb_reg_weighted, X[selected_features_xgb_100], y, scoring='neg_mean_absolute_error', cv=2, n_jobs=-1, verbose=2)
+# # [ -9.58242875,  -9.80860827,  -9.38500866, -12.01706412, -11.58635128])
+#
+# cv_scores_xgb = cross_val_score(
+#     xgb_reg_weighted, X[selected_features_xgb_75], y, scoring='neg_mean_absolute_error', cv=2, n_jobs=-1, verbose=2)
 
-
-
-xgb_reg_50 = xgb.XGBRegressor(**xg_params)
-xgb_reg_50.fit(X[selected_features_rf_50], y, verbose=2)
-y_pred_xgb = xgb_reg_50.predict(X_test[selected_features_rf_50])
-
-print('XGB_50', mean_absolute_error(y_test, y_pred_xgb),
-      mean_squared_error(y_test, y_pred_xgb))
-# XGB_50 13.053960266992148 282.7311349215896
-# For y_test.shape =(9115,)
-
-# Let's make sur we do not overfitt: X.shape: (16631, 169)
-# --> We make a 2 fold cv and should find something around 13 MAE
-
-cv_scores_xgb_50_features = cross_val_score(
-    xgb_reg_50, X[selected_features_rf_50], y, scoring='neg_mean_absolute_error', cv=2, n_jobs=-1)
-# array([-10.67466953, -13.01657841])
-
-# With 5 folds:
-cv_scores_xgb_50_features = cross_val_score(
-    xgb_reg_50, X[selected_features_rf_50], y, scoring='neg_mean_absolute_error', cv=5, n_jobs=-1)
-# cv_scores_xgb_50_features = array([-10.17656852, -10.14356455,  -9.963878  , -12.32954861, -11.71705757])
-
-plt.plot(-np.sort(-xgb_reg_50.feature_importances_).cumsum())
-plt.show()
-# --> Let's keep the 35 most important features for XG boost, who account for more than 99% of the importance.
-
-
-
-xgb_reg_25 = xgb.XGBRegressor(**xg_params)
-xgb_reg_25.fit(X[selected_features_rf_25], y, verbose=2)
-
-xgb_reg_weighted = xgb.XGBRegressor(**xg_params)
-xgb_reg_weighted.fit(X[selected_features_rf_50], y, verbose=2, sample_weight=sample_weights)
-
-
-
-xgb_reg_all_features_weighted = xgb.XGBRegressor(**xg_params)
-xgb_reg_all_features_weighted.fit(X, y, verbose=2, sample_weight=sample_weights)
-
-
-cv_scores_xgb_all_features = cross_val_score(xgb_reg_all_features, X, y, scoring='neg_mean_absolute_error', cv=5, n_jobs=-1)
-# cv_scores_xgb_all_features = array([ -9.74721651, -10.13252724, -10.13221739, -12.32682284, -12.21885899])
-
-xgb.plot_importance(xgb_reg_50)
-plt.show()
-
-y_pred_xgb_weighted = xgb_reg_weighted.predict(X_test[selected_features_rf_50])
-y_pred_xgb_all_features_weighted = xgb_reg_all_features.predict(X_test)
-
-print('XGB', mean_absolute_error(y_test, y_pred_xgb),
-      mean_squared_error(y_test, y_pred_xgb))
-print('XGB weighted', mean_absolute_error(y_test, y_pred_xgb),
-      mean_squared_error(y_test, y_pred_xgb))
-
-
-plot_error_repartition(y_test, y_pred_xgb, model_name='XGB', save=True)
-plot_error_repartition(y_test, y_pred_xgb_weighted, model_name='XGB weighted', save=True)
-plot_error_repartition(y_test, y_pred_xgb_all_features, model_name='XGB all features', save=True)
-
-residual_quadra_plot(y_test, y_pred_xgb, model_name='XGB', save=True)
-residual_quadra_plot(y_test, y_pred_xgb_weighted, model_name='XGB weighted', save=True)
-residual_quadra_plot(y_test, y_pred_xgb_all_features, model_name='XGB all features', save=True)
 
