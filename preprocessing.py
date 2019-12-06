@@ -18,13 +18,14 @@ def drop_constant_signals(train, test, cols, threshold=0.005):
     return train, test, filtered_sensor_columns
 
 
-def generate_labels(train, test, test_label_file_name):
+def generate_labels(train, test, test_label_file_name, flatten_time_to_failure=True, threshold=150):
     train["time_to_failure"] = pd.Series()
     for engine_id in set(train.index):
         train.loc[engine_id, "time_to_failure"] = train.loc[engine_id, "time"].max() \
                                                                     - train.loc[engine_id, "time"]
     train.time_to_failure = train.time_to_failure.astype(np.int32)
-    train.time_to_failure = train.time_to_failure.apply(lambda x: x if x<150 else 150)
+    if flatten_time_to_failure:
+        train.time_to_failure = train.time_to_failure.apply(lambda x: x if x < threshold else threshold)
     train = train.drop(columns="time")
 
     label_file = open(test_label_file_name, "r")
@@ -36,9 +37,10 @@ def generate_labels(train, test, test_label_file_name):
                                                                   + test.loc[engine_id, "time"].max() \
                                                                   - test.loc[engine_id, "time"]
     test = test.drop(columns="time")
-    test.time_to_failure = test.time_to_failure.astype(np.int32)
-    test.time_to_failure = test.time_to_failure.apply(lambda x: x if x<150 else 150)
 
+    test.time_to_failure = test.time_to_failure.astype(np.int32)
+    if flatten_time_to_failure:
+        test.time_to_failure = test.time_to_failure.apply(lambda x: x if x < threshold else threshold)
     return train, test
 
 
