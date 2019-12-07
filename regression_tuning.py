@@ -452,58 +452,20 @@ sample_weights = np.where(
                         y <= 100, 1, 0.1
                     ))))))
 
-xgb_reg_weighted_tweedie = xgb.XGBRegressor(max_depth=3, objective='reg:tweedie', n_estimators=200, n_jobs=-1)
-xgb_reg_weighted_tweedie.fit(X, y, verbose=2, sample_weight=sample_weights_2)
-y_pred_weighted_tweedie = xgb_reg_weighted_tweedie.predict(X_test)
-pd.DataFrame(y_pred_weighted_tweedie).to_csv("regression_results_and_plots/y_pred_weighted_2_tweedie.csv")
+# xgb_reg_weighted_tweedie = xgb.XGBRegressor(max_depth=3, objective='reg:tweedie', n_estimators=200, n_jobs=-1)
+# xgb_reg_weighted_tweedie.fit(X, y, verbose=2, sample_weight=sample_weights_2)
+# y_pred_weighted_tweedie = xgb_reg_weighted_tweedie.predict(X_test)
+# pd.DataFrame(y_pred_weighted_tweedie).to_csv("regression_results_and_plots/y_pred_weighted_2_tweedie.csv")
 y_pred_weighted_tweedie = np.array(pd.read_csv("regression_results_and_plots/y_pred_weighted_2_tweedie.csv")['0'])
 print("XGB weighted tweedie", mean_absolute_error(y_test, y_pred_weighted_tweedie), mean_squared_error(y_test, y_pred_weighted_tweedie))
 # XGB weighted tweedie 30.674529933824818 1384.2559447988936
 residual_quadra_plot(y_test, y_pred_weighted_tweedie, model_name="XGB weighted 2 tweedie", save=True)
 
-xgb_reg_weighted_squarederror = xgb.XGBRegressor(max_depth=3, objective='reg:squarederror', n_estimators=200, n_jobs=-1)
-xgb_reg_weighted_squarederror.fit(X, y, verbose=2, sample_weight=sample_weights_2)
-y_pred_weighted_squarederror = xgb_reg_weighted_squarederror.predict(X_test)
-pd.DataFrame(y_pred_weighted_squarederror).to_csv("regression_results_and_plots/y_pred_weighted_squarederror.csv")
+# xgb_reg_weighted_squarederror = xgb.XGBRegressor(max_depth=3, objective='reg:squarederror', n_estimators=200, n_jobs=-1)
+# xgb_reg_weighted_squarederror.fit(X, y, verbose=2, sample_weight=sample_weights_2)
+# y_pred_weighted_squarederror = xgb_reg_weighted_squarederror.predict(X_test)
+# pd.DataFrame(y_pred_weighted_squarederror).to_csv("regression_results_and_plots/y_pred_weighted_squarederror.csv")
 y_pred_weighted_squarederror = np.array(pd.read_csv("regression_results_and_plots/y_pred_weighted_squarederror.csv")['0'])
 print("XGB weighted squarederror", mean_absolute_error(y_test, y_pred_weighted_squarederror), mean_squared_error(y_test, y_pred_weighted_squarederror))
 # XGB weighted sqarederror 16.108829582672623 436.2950446098589
 residual_quadra_plot(y_test, y_pred_weighted_squarederror, model_name="XGB weighted_2 squarederror", save=True)
-
-#
-# cv_scores_xgb = cross_val_score(
-#     xgb_reg_weighted, X, y, scoring='neg_mean_absolute_error', cv=2, n_jobs=-1, verbose=2)
-# # array([ -9.93397797, -12.24655596])
-#
-# # With 5 folds:
-# cv_scores_xgb = cross_val_score(
-#     xgb_reg_weighted, X, y, scoring='neg_mean_absolute_error', cv=5, n_jobs=-1, verbose=2)
-# # cv_scores_xgb_50_features = array([ -9.04913295,  -9.29853543,  -9.3275443 , -11.59707833, -11.53495859])
-#
-# xgb_reg_weighted_squarederror_feature_importances = pd.DataFrame(xgb_reg_weighted_squarederror.feature_importances_)
-# xgb_reg_weighted_squarederror_feature_importances.to_csv("regression_results_and_plots/xgb_reg_weighted_squarederror_feature_importances.csv")
-xgb_reg_weighted_squarederror_feature_importances = pd.read_csv("regression_results_and_plots/xgb_reg_weighted_squarederror_feature_importances.csv")['0']
-plt.plot(-np.sort(-xgb_reg_weighted_squarederror.feature_importances_).cumsum())
-plt.title('feature importance for xgb_reg_weighted_squarederror')
-# plt.savefig("feature importance for xgb_reg_weighted_squarederror")
-plt.show()
-# --> Let's keep the 100 most important features for XG boost, who account for more than 99% of the importance.
-selected_features_xgb_100 = pd.DataFrame(data=X.columns.values, columns=['feat_names'])
-selected_features_xgb_100['feat_imp'] = xgb_reg_weighted_squarederror_feature_importances
-selected_features_xgb_100.sort_values(by='feat_imp')
-selected_features_xgb_100 = selected_features_xgb_100.feat_names[:100]
-selected_features_xgb_75 = selected_features_xgb_100[:75]
-selected_features_xgb_50 = selected_features_xgb_100[:50]
-
-cv_scores_xgb = cross_val_score(
-    xgb_reg_weighted_squarederror, X[selected_features_xgb_100], y, scoring='neg_mean_absolute_error', cv=2, n_jobs=-1, verbose=2)
-# [ -9.58242875,  -9.80860827,  -9.38500866, -12.01706412, -11.58635128])
-# array([-10.62010572, -12.91100659])
-
-cv_scores_xgb = cross_val_score(
-    xgb_reg_weighted_squarederror, X[selected_features_xgb_75], y, scoring='neg_mean_absolute_error', cv=2, n_jobs=-1, verbose=2)
-# Out[31]: array([-10.61753812, -13.00911618])
-
-cv_scores_xgb = cross_val_score(
-    xgb_reg_weighted_squarederror, X[selected_features_xgb_50], y, scoring='neg_mean_absolute_error', cv=2, n_jobs=-1, verbose=2)
-#Out[33]: array([-10.53843629, -12.67522863])
