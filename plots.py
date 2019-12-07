@@ -171,7 +171,7 @@ def hist_residuals(trues, preds, show=True):
 
 def residual_quadra_plot(trues, preds, show=True, model_name="", save=False):
     fig = plt.figure(figsize=[12.8, 9.6])
-    fig.suptitle("{model_name}".format(model_name=model_name), fontsize=10)
+    fig.suptitle("{model_name}".format(model_name=model_name), fontsize=18)
     fig.add_subplot(221)
     plot_residuals(trues, preds, show=False)
     fig.add_subplot(222)
@@ -181,7 +181,7 @@ def residual_quadra_plot(trues, preds, show=True, model_name="", save=False):
     fig.add_subplot(224)
     plot_error_repartition(trues, preds, show=False)
     if save:
-        plt.savefig("regression_results_and_plots/Quadraplot_for_{model_name}".format(model_name=model_name))
+        plt.savefig("regression_results_and_plots/Quadraplot_for_{model_name}".format(model_name=model_name).replace(" ", "_"))
     if show:
         plt.show()
 

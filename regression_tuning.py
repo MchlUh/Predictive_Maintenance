@@ -252,9 +252,9 @@ residual_quadra_plot(np.array(y_test), np.array(y_pred_lm_elastic_log), model_na
 # grid_searchCV_results_rf = grid_search_rf.cv_results_
 #
 # grid_searchCV_results_rf = pd.DataFrame(grid_searchCV_results_rf)
-# grid_searchCV_results_rf.to_csv("regression_results_and_plots/grid_searchCV_results_rf_3.csv")
+# grid_searchCV_results_rf.to_csv("regression_results_and_plots/grid_searchCV_results_rf.csv")
 
-grid_searchCV_results_rf = pd.read_csv("regression_results_and_plots/grid_searchCV_results_rf_3.csv")
+grid_searchCV_results_rf = pd.read_csv("regression_results_and_plots/grid_searchCV_results_rf.csv")
 grid_searchCV_results_rf = pd.DataFrame(grid_searchCV_results_rf)
 grid_searchCV_results_rf
 
@@ -278,19 +278,17 @@ render_mpl_table(grid_searchCV_results_rf, header_columns=0, col_width=2.1)
 plt.show()
 
 # Using best parameters for MAE and Overfitting:
-rf = RandomForestRegressor(n_estimators=30, criterion='mae',
-                           max_depth=7, n_jobs=-1, min_impurity_decrease=0, verbose=2)
-rf.fit(X_scaled[selected_features_rf_50], y)
-
-y_pred_rf = rf.predict(X_test_scaled[selected_features_rf_50])
-pd.DataFrame(y_pred_rf).to_csv("regression_results_and_plots/y_pred_rf_30_7.csv")
+# rf = RandomForestRegressor(n_estimators=30, criterion='mae',
+#                            max_depth=7, n_jobs=-1, min_impurity_decrease=0, verbose=2)
+# rf.fit(X_scaled[selected_features_rf_50], y)
+#
+# y_pred_rf = rf.predict(X_test_scaled[selected_features_rf_50])
+# pd.DataFrame(y_pred_rf).to_csv("regression_results_and_plots/y_pred_rf_30_7.csv")
 y_pred_rf = pd.read_csv("regression_results_and_plots/y_pred_rf_30_7.csv")['0']
 
 print('RandomForest Regressor with 50 Best features',
       mean_absolute_error(y_test, y_pred_rf), mean_squared_error(y_test, y_pred_rf))
 # 50 best features, (n_estimators=30, max_depth=7) 14.278511610897787 396.8144270128604
-
-cv_scores_lin_reg = cross_val_score(rf, X_scaled, y, scoring='neg_mean_absolute_error', cv=5, n_jobs=-1)
 
 
 plot_error_repartition(y_test, y_pred_rf, model_name='RandomForest', save=False)
