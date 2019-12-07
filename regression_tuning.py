@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from sklearn.linear_model import LinearRegression, ElasticNetCV, ElasticNet
+from sklearn.linear_model import LinearRegression, ElasticNetCV, ElasticNet, Lasso, LassoCV
 import xgboost as xgb
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.feature_selection import SelectKBest, RFECV, RFE, SelectFromModel
@@ -14,7 +14,7 @@ import csv
 import json
 from sklearn.preprocessing import MinMaxScaler
 from cross_validation import split_engines_for_cv
-
+from custom_loss_functions import *
 
 df_train = pd.read_csv('feature_engineered_train.csv').set_index('id')
 df_test = pd.read_csv('feature_engineered_test.csv').set_index('id')
@@ -131,17 +131,13 @@ print('Linear Regression',
       mean_absolute_error(y_test, y_pred_lm), mean_squared_error(y_test, y_pred_lm))
 # Linear Regression 14.186551385453248 320.8556628639239
 
-cross_val_score(lin_reg, X_scaled, y, scoring='neg_mean_absolute_error', cv=5, n_jobs=-1)
-# array([-12.16980952, -11.17104961, -12.59957027, -12.58221051, -12.94705154])
-# mean -12.29393829 std 0.6
-
 cross_val_score(lin_reg, X_scaled, y, scoring='neg_mean_absolute_error',
                 cv=split_engines_for_cv(df_train, 5), n_jobs=-1)
 # array([-12.21726634, -12.97280371, -12.16001629, -10.94091102, -12.59093323])
 # mean -12.17 std 0.68
 
-cross_val_score(lin_reg, X_scaled, y, scoring='neg_mean_squared_error', cv=5, n_jobs=-1)
-# array([-240.76934135, -199.44898308, -268.04097642, -273.95922803, -274.64024234])
+cross_val_score(lin_reg, X_scaled, y, scoring='neg_mean_squared_error', cv=split_engines_for_cv(df_train, 5), n_jobs=-1)
+# array([-255.8482656 , -241.23431738, -282.42964042, -268.67618365, -260.66523075])
 residual_quadra_plot(np.array(y_test), np.array(y_pred_lm), model_name='Linear Regression', save=True)
 
 lin_reg.fit(X_scaled[selected_features_rf_50], y)
@@ -149,10 +145,11 @@ y_pred_lm_50 = lin_reg.predict(X_test_scaled[selected_features_rf_50])
 print('Linear Regression',
       mean_absolute_error(y_test, y_pred_lm_50), mean_squared_error(y_test, y_pred_lm_50))
 # Linear Regression 15.62867085192837 386.20531142859625
+
 lin_reg = LinearRegression()
-cross_val_score(lin_reg, X_scaled[selected_features_rf_50], y, scoring='neg_mean_absolute_error', cv=2, n_jobs=-1)
-# array([-13.74193944, -15.29926381])
-# Still overfitt
+cross_val_score(lin_reg, X_scaled[selected_features_rf_50], y, scoring='neg_mean_absolute_error',
+                cv=split_engines_for_cv(df_train, 5), n_jobs=-1)
+# array([-13.35957701, -14.69236499, -14.4672576 , -13.90365472, -12.71046825])
 
 
 
@@ -193,9 +190,9 @@ cross_val_score(lin_reg, X_scaled[selected_features_rf_25], y, scoring='neg_mean
 #       mean_absolute_error(y_test, y_pred_lm_elasticCV), mean_squared_error(y_test, y_pred_lm_elasticCV))
 # 16.789624747721206 441.04810419595884
 #
-# lm_elastic_params = {'alpha': 0.00031142146133688865,
-#  'l1_ratio': 1,
-#  'max_iter': 50000}
+lm_elastic_params = {'alpha': 0.00031142146133688865,
+ 'l1_ratio': 1,
+ 'max_iter': 50000}
 #
 # lm_elastic = ElasticNet().set_params(**lm_elastic_params)
 # lm_elastic.fit(X_scaled, y)    # Only MSE Loss available.
@@ -207,7 +204,10 @@ print('ElasticNet',
       mean_absolute_error(y_test, y_pred_lm_elastic), mean_squared_error(y_test, y_pred_lm_elastic))
 # ElasticNet 16.143727696448916 420.01787048073106
 residual_quadra_plot(np.array(y_test), np.array(y_pred_lm_elastic), model_name='ElasticNet', save=True)
-
+lm_elastic = ElasticNet().set_params(**lm_elastic_params)
+cross_val_score(lm_elastic, X_scaled, y, scoring='neg_mean_absolute_error',
+                cv=split_engines_for_cv(df_train, 5), n_jobs=-1, verbose=1)
+#
 
 # Tye to fit on log of time
 # lm_elastic_log = ElasticNet().set_params(**lm_elastic_params)
@@ -223,6 +223,30 @@ print('ElasticNet with selected_features_rfe on log(time_to_failure + 1)',
 # 18.58649892751042 574.5034165674568
 residual_quadra_plot(np.array(y_test), np.array(y_pred_lm_elastic_log), model_name='ElasticNet on log(RUL+1)', save=True)
 
+
+
+######### LASSO #############
+
+# lassocv = LassoCV(max_iter= 50000)
+# lassocv.fit(X_scaled, y)
+# lassocv.alpha_
+# # 0.008510733428080512
+
+lm_lasso = Lasso(max_iter=50000, alpha=0.008510733428080512)
+lm_lasso.fit(X_scaled, y)    # Only MSE Loss available.
+
+y_pred_lm_lasso = lm_lasso.predict(X_test_scaled)
+pd.DataFrame(y_pred_lm_lasso).to_csv("regression_results_and_plots/y_pred_lm_lasso.csv")
+y_pred_lm_lasso = pd.read_csv("regression_results_and_plots/y_pred_lm_lasso.csv")['0']
+print('Lasso',
+      mean_absolute_error(y_test, y_pred_lm_lasso), mean_squared_error(y_test, y_pred_lm_lasso))
+# Lasso 17.00097673301759 447.44850231998595
+residual_quadra_plot(np.array(y_test), np.array(y_pred_lm_lasso), model_name='Lasso', save=True)
+
+cross_val_score(lm_lasso, X_scaled[selected_features_rf_50], y, scoring='neg_mean_absolute_error',
+                cv=split_engines_for_cv(df_train, 5), n_jobs=-1)
+# [-15.91849207, -14.29243208, -17.74059138, -15.54330277,
+#        -16.13669512]
 
 #######################################
 ######    #######
@@ -278,18 +302,20 @@ render_mpl_table(grid_searchCV_results_rf, header_columns=0, col_width=2.1)
 plt.show()
 
 # Using best parameters for MAE and Overfitting:
-# rf = RandomForestRegressor(n_estimators=30, criterion='mae',
-#                            max_depth=7, n_jobs=-1, min_impurity_decrease=0, verbose=2)
+rf = RandomForestRegressor(n_estimators=30, criterion='mae',
+                           max_depth=7, n_jobs=-1, min_impurity_decrease=0, verbose=2)
 # rf.fit(X_scaled[selected_features_rf_50], y)
 #
 # y_pred_rf = rf.predict(X_test_scaled[selected_features_rf_50])
 # pd.DataFrame(y_pred_rf).to_csv("regression_results_and_plots/y_pred_rf_30_7.csv")
 y_pred_rf = pd.read_csv("regression_results_and_plots/y_pred_rf_30_7.csv")['0']
-
 print('RandomForest Regressor with 50 Best features',
       mean_absolute_error(y_test, y_pred_rf), mean_squared_error(y_test, y_pred_rf))
 # 50 best features, (n_estimators=30, max_depth=7) 14.278511610897787 396.8144270128604
 
+cross_val_score(rf, X_scaled[selected_features_rf_50], y, scoring='neg_mean_absolute_error',
+                cv=split_engines_for_cv(df_train, 5), n_jobs=-1)
+# After 45 minutes ... : array([-12.14899189, -11.44919078, -12.48386938, -11.84116947,  -11.31651656])
 
 plot_error_repartition(y_test, y_pred_rf, model_name='RandomForest', save=False)
 residual_quadra_plot(np.array(y_test), np.array(y_pred_rf), model_name="Random Forest", save=True)
@@ -335,36 +361,31 @@ residual_quadra_plot(np.array(y_test), np.array(y_pred_svr), model_name="SVR", s
 ##      ##    ####
 
 
-def huber_approx_obj(preds, dtrain):
-    d = preds - dtrain
-    h = 1
-    scale = 1 + (d / h) ** 2
-    scale_sqrt = np.sqrt(scale)
-    grad = -d / scale_sqrt
-    hess = 1 / scale / scale_sqrt
-    return grad, hess
-
-
-# define a loss that is MSE if time to failure is small (<50), and MAE otherwise.
-def custom_loss_train(y_pred, y_true):
-    grad = np.where(y_true < 50, (huber_approx_obj(y_pred, y_true)[0])**2, huber_approx_obj(y_pred, y_true)[0])
-    hess = np.where(y_true < 50, huber_approx_obj(y_pred, y_true)[1]*2, huber_approx_obj(y_pred, y_true)[1])
-    return grad, hess
-
-def custom_loss_treshold_50(y_pred, y_true):
-    grad = np.where(y_true < 50, 2.5*(y_true-y_pred), 1)
-    hess = np.where(y_true < 50, 2.5, 0)
-    return grad, hess
-
-def custom_loss_treshold_75(y_pred, y_true):
-    grad = np.where(y_true < 75, 2.5*(y_true-y_pred), 1)
-    hess = np.where(y_true < 75, 2.5, 0)
-    return grad, hess
-
-def custom_loss(y_pred, y_true):
-    grad = np.where((y_true-y_pred) < 75, 2.5*(y_true-y_pred), 1)
-    hess = np.where((y_true-y_pred) < 75, 2.5, 0)
-    return grad, hess
+# def huber_approx_obj(preds, dtrain):
+#     d = preds - dtrain
+#     h = 1
+#     scale = 1 + (d / h) ** 2
+#     scale_sqrt = np.sqrt(scale)
+#     grad = -d / scale_sqrt
+#     hess = 1 / scale / scale_sqrt
+#     return grad, hess
+#
+#
+#
+# def custom_loss_treshold_50(y_pred, y_true):
+#     grad = np.where(y_true < 50, 2.5*(y_true-y_pred), 1)
+#     hess = np.where(y_true < 50, 2.5, 0)
+#     return grad, hess
+#
+# def custom_loss_treshold_75(y_pred, y_true):
+#     grad = np.where(y_true < 75, 2.5*(y_true-y_pred), 1)
+#     hess = np.where(y_true < 75, 2.5, 0)
+#     return grad, hess
+#
+# def custom_loss_test(y_pred, y_true):
+#     grad = np.where((y_true-y_pred) < 75, 2.5*(y_true-y_pred), 1)
+#     hess = np.where((y_true-y_pred) < 75, 2.5, 0)
+#     return grad, hess
 
 
 # xg_params = {'max_depth': [3, 4, 7],
@@ -386,7 +407,8 @@ def custom_loss(y_pred, y_true):
 
 y_pred_xgb = pd.DataFrame()
 
-for obj in [custom_loss_treshold_50, custom_loss_treshold_75, custom_loss, 'reg:gamma', 'reg:tweedie', 'reg:squarederror']:
+for obj in [huber_approx_obj, custom_loss_treshold_50, custom_loss_treshold_75, custom_loss_treshold_30,
+            'reg:gamma', 'reg:tweedie', 'reg:squarederror']:
     if obj == huber_approx_obj:
         XGB = xgb.XGBRegressor(max_depth=3, objective=obj, n_estimators=200, n_jobs=-1)
     else:
@@ -411,6 +433,16 @@ y_pred_xgb.to_csv("regression_results_and_plots/y_pred_xgb_5_obj.csv")
 # XGB with reg:squarederror        12.44 256
 
 #
+
+sample_weights_2 = np.where(
+    y <= 10, 10000, np.where(
+        y <= 20, 1250, np.where(
+            y <= 30, 150, np.where(
+                y <= 40, 30, np.where(
+                    y <= 50, 8, np.where(
+                        y <= 100, 1, 0.1
+                    ))))))
+
 sample_weights = np.where(
     y <= 10, 100*10, np.where(
         y <= 20, 25*5, np.where(
@@ -420,23 +452,23 @@ sample_weights = np.where(
                         y <= 100, 1, 0.1
                     ))))))
 
-# xgb_reg_weighted_tweedie = xgb.XGBRegressor(max_depth=3, objective='reg:tweedie', n_estimators=200, n_jobs=-1)
-# xgb_reg_weighted_tweedie.fit(X, y, verbose=2, sample_weight=sample_weights)
-# y_pred_weighted_tweedie = xgb_reg_weighted_tweedie.predict(X_test)
-# pd.DataFrame(y_pred_weighted_tweedie).to_csv("regression_results_and_plots/y_pred_weighted_tweedie.csv")
-y_pred_weighted_tweedie = np.array(pd.read_csv("regression_results_and_plots/y_pred_weighted_tweedie.csv")['0'])
+xgb_reg_weighted_tweedie = xgb.XGBRegressor(max_depth=3, objective='reg:tweedie', n_estimators=200, n_jobs=-1)
+xgb_reg_weighted_tweedie.fit(X, y, verbose=2, sample_weight=sample_weights_2)
+y_pred_weighted_tweedie = xgb_reg_weighted_tweedie.predict(X_test)
+pd.DataFrame(y_pred_weighted_tweedie).to_csv("regression_results_and_plots/y_pred_weighted_2_tweedie.csv")
+y_pred_weighted_tweedie = np.array(pd.read_csv("regression_results_and_plots/y_pred_weighted_2_tweedie.csv")['0'])
 print("XGB weighted tweedie", mean_absolute_error(y_test, y_pred_weighted_tweedie), mean_squared_error(y_test, y_pred_weighted_tweedie))
 # XGB weighted tweedie 30.674529933824818 1384.2559447988936
-residual_quadra_plot(y_test, y_pred_weighted_tweedie, model_name="XGB weighted tweedie", save=True)
+residual_quadra_plot(y_test, y_pred_weighted_tweedie, model_name="XGB weighted 2 tweedie", save=True)
 
 xgb_reg_weighted_squarederror = xgb.XGBRegressor(max_depth=3, objective='reg:squarederror', n_estimators=200, n_jobs=-1)
-xgb_reg_weighted_squarederror.fit(X, y, verbose=2, sample_weight=sample_weights)
+xgb_reg_weighted_squarederror.fit(X, y, verbose=2, sample_weight=sample_weights_2)
 y_pred_weighted_squarederror = xgb_reg_weighted_squarederror.predict(X_test)
 pd.DataFrame(y_pred_weighted_squarederror).to_csv("regression_results_and_plots/y_pred_weighted_squarederror.csv")
 y_pred_weighted_squarederror = np.array(pd.read_csv("regression_results_and_plots/y_pred_weighted_squarederror.csv")['0'])
 print("XGB weighted squarederror", mean_absolute_error(y_test, y_pred_weighted_squarederror), mean_squared_error(y_test, y_pred_weighted_squarederror))
 # XGB weighted sqarederror 16.108829582672623 436.2950446098589
-residual_quadra_plot(y_test, y_pred_weighted_squarederror, model_name="XGB weighted squarederror", save=True)
+residual_quadra_plot(y_test, y_pred_weighted_squarederror, model_name="XGB weighted_2 squarederror", save=True)
 
 #
 # cv_scores_xgb = cross_val_score(
@@ -449,8 +481,8 @@ residual_quadra_plot(y_test, y_pred_weighted_squarederror, model_name="XGB weigh
 # # cv_scores_xgb_50_features = array([ -9.04913295,  -9.29853543,  -9.3275443 , -11.59707833, -11.53495859])
 #
 # xgb_reg_weighted_squarederror_feature_importances = pd.DataFrame(xgb_reg_weighted_squarederror.feature_importances_)
-# xgb_reg_weighted_squarederror_feature_importances.to_csv("xgb_reg_weighted_squarederror_feature_importances.csv")
-xgb_reg_weighted_squarederror_feature_importances = pd.read_csv("xgb_reg_weighted_squarederror_feature_importances.csv")['0']
+# xgb_reg_weighted_squarederror_feature_importances.to_csv("regression_results_and_plots/xgb_reg_weighted_squarederror_feature_importances.csv")
+xgb_reg_weighted_squarederror_feature_importances = pd.read_csv("regression_results_and_plots/xgb_reg_weighted_squarederror_feature_importances.csv")['0']
 plt.plot(-np.sort(-xgb_reg_weighted_squarederror.feature_importances_).cumsum())
 plt.title('feature importance for xgb_reg_weighted_squarederror')
 # plt.savefig("feature importance for xgb_reg_weighted_squarederror")
