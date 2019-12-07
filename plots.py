@@ -181,7 +181,7 @@ def residual_quadra_plot(trues, preds, show=True, model_name="", save=False):
     fig.add_subplot(224)
     plot_error_repartition(trues, preds, show=False)
     if save:
-        plt.savefig("regression_results_and_plots/Quadraplot for {model_name}".format(model_name=model_name))
+        plt.savefig("regression_results_and_plots/Quadraplot_for_{model_name}".format(model_name=model_name))
     if show:
         plt.show()
 

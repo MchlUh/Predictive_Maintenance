@@ -133,11 +133,18 @@ print('Linear Regression',
 
 cross_val_score(lin_reg, X_scaled, y, scoring='neg_mean_absolute_error', cv=5, n_jobs=-1)
 # array([-12.16980952, -11.17104961, -12.59957027, -12.58221051, -12.94705154])
+# mean -12.29393829 std 0.6
+
+cross_val_score(lin_reg, X_scaled, y, scoring='neg_mean_absolute_error',
+                cv=split_engines_for_cv(df_train, 5), n_jobs=-1)
+# array([-12.21726634, -12.97280371, -12.16001629, -10.94091102, -12.59093323])
+# mean -12.17 std 0.68
+
 cross_val_score(lin_reg, X_scaled, y, scoring='neg_mean_squared_error', cv=5, n_jobs=-1)
 # array([-240.76934135, -199.44898308, -268.04097642, -273.95922803, -274.64024234])
 residual_quadra_plot(np.array(y_test), np.array(y_pred_lm), model_name='Linear Regression', save=True)
 
-# lin_reg.fit(X_scaled[selected_features_rf_50], y)
+lin_reg.fit(X_scaled[selected_features_rf_50], y)
 y_pred_lm_50 = lin_reg.predict(X_test_scaled[selected_features_rf_50])
 print('Linear Regression',
       mean_absolute_error(y_test, y_pred_lm_50), mean_squared_error(y_test, y_pred_lm_50))
@@ -146,8 +153,6 @@ lin_reg = LinearRegression()
 cross_val_score(lin_reg, X_scaled[selected_features_rf_50], y, scoring='neg_mean_absolute_error', cv=2, n_jobs=-1)
 # array([-13.74193944, -15.29926381])
 # Still overfitt
-cross_val_score(lin_reg, X_scaled[selected_features_rf_50], y, scoring='neg_mean_absolute_error',
-                cv=split_engines_for_cv(train_df, 5), n_jobs=-1)
 
 
 
@@ -201,7 +206,7 @@ y_pred_lm_elastic = pd.read_csv("regression_results_and_plots/y_pred_lm_elastic.
 print('ElasticNet',
       mean_absolute_error(y_test, y_pred_lm_elastic), mean_squared_error(y_test, y_pred_lm_elastic))
 # ElasticNet 16.143727696448916 420.01787048073106
-residual_quadra_plot(np.array(y_test), np.array(y_pred_lm_elastic), model_name='ElasticNet', save=False)
+residual_quadra_plot(np.array(y_test), np.array(y_pred_lm_elastic), model_name='ElasticNet', save=True)
 
 
 # Tye to fit on log of time
@@ -216,7 +221,7 @@ y_pred_lm_elastic_log = pd.read_csv("regression_results_and_plots/y_pred_lm_elas
 print('ElasticNet with selected_features_rfe on log(time_to_failure + 1)',
       mean_absolute_error(y_test, y_pred_lm_elastic_log), mean_squared_error(y_test, y_pred_lm_elastic_log))
 # 18.58649892751042 574.5034165674568
-residual_quadra_plot(np.array(y_test), np.array(y_pred_lm_elastic_log), model_name='ElasticNet on log(RUL+1)')
+residual_quadra_plot(np.array(y_test), np.array(y_pred_lm_elastic_log), model_name='ElasticNet on log(RUL+1)', save=True)
 
 
 #######################################
@@ -289,7 +294,7 @@ cv_scores_lin_reg = cross_val_score(rf, X_scaled, y, scoring='neg_mean_absolute_
 
 
 plot_error_repartition(y_test, y_pred_rf, model_name='RandomForest', save=False)
-residual_quadra_plot(np.array(y_test), np.array(y_pred_rf), model_name="Random Forest", save=False)
+residual_quadra_plot(np.array(y_test), np.array(y_pred_rf), model_name="Random Forest", save=True)
 
 
 #####  #        #  ######
