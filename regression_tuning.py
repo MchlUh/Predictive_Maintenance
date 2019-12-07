@@ -135,7 +135,7 @@ cross_val_score(lin_reg, X_scaled, y, scoring='neg_mean_absolute_error', cv=5, n
 # array([-12.16980952, -11.17104961, -12.59957027, -12.58221051, -12.94705154])
 cross_val_score(lin_reg, X_scaled, y, scoring='neg_mean_squared_error', cv=5, n_jobs=-1)
 # array([-240.76934135, -199.44898308, -268.04097642, -273.95922803, -274.64024234])
-residual_quadra_plot(np.array(y_test), np.array(y_pred_lm), model_name='Linear Regression', save=False)
+residual_quadra_plot(np.array(y_test), np.array(y_pred_lm), model_name='Linear Regression', save=True)
 
 # lin_reg.fit(X_scaled[selected_features_rf_50], y)
 y_pred_lm_50 = lin_reg.predict(X_test_scaled[selected_features_rf_50])
