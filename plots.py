@@ -170,7 +170,7 @@ def hist_residuals(trues, preds, show=True):
 
 
 def residual_quadra_plot(trues, preds, show=True, model_name="", save=False):
-    fig = plt.figure()
+    fig = plt.figure(figsize=[12.8, 9.6])
     fig.suptitle("{model_name}".format(model_name=model_name), fontsize=10)
     fig.add_subplot(221)
     plot_residuals(trues, preds, show=False)
