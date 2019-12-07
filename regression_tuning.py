@@ -12,6 +12,9 @@ from matplotlib import pyplot as plt
 from plots import *
 import csv
 import json
+from sklearn.preprocessing import MinMaxScaler
+from cross_validation import split_engines_for_cv
+
 
 df_train = pd.read_csv('feature_engineered_train.csv').set_index('id')
 df_test = pd.read_csv('feature_engineered_test.csv').set_index('id')
@@ -23,7 +26,9 @@ X, y = df_train.drop('time_to_failure', axis=1), df_train.time_to_failure
 X_test, y_test = df_test.drop('time_to_failure', axis=1), df_test.time_to_failure
 
 
-# Recursive feature elimination
+
+#
+# # Recursive feature elimination
 # rfe = RFECV(LinearRegression(), scoring='neg_mean_absolute_error', cv=5)
 # rfe.fit(X, y)
 # selected_features_rfe = [X.columns[i] for i in range(X.shape[1]) if rfe.get_support()[i]]
@@ -33,9 +38,29 @@ X_test, y_test = df_test.drop('time_to_failure', axis=1), df_test.time_to_failur
 selected_features_rfe = pd.read_csv("regression_results_and_plots/selected_features_rfe.csv")['0']
 selected_features_rfe = selected_features_rfe.values
 
-# --> Keeps 167 features out of 170.  Not very helpfull.
-# Also, do not account for interaction between features as uses linear regression.
+removed_features = list(X.columns)
+for f in selected_features_rfe:
+    removed_features.remove(f)
 
+# removed_features Out[46]: ['sensor9_time_reversal_asymmetry_window_20_lag_5',
+# 'sensor14_time_reversal_asymmetry_window_20_lag_5']
+# --> Only removes 2 features out of 169 !
+# Looking closer, it turns out there is a scale problem with these 2
+
+scaler = MinMaxScaler()
+scaler.fit(X)
+X_scaled = pd.DataFrame(scaler.transform(X), columns=X.columns)
+X_test_scaled = pd.DataFrame(scaler.transform(X_test), columns=X.columns)
+# after performing a RFE on the scaled features, every features are kept.
+selected_features_scaled_rfe = pd.read_csv("regression_results_and_plots/selected_scaled_features_rfe.csv")['0']
+selected_features_scaled_rfe = selected_features_scaled_rfe.values
+
+# --> We do not get rid of any feature yet.
+
+####
+####
+# We now want to look at feature importance.
+# For this, we use a Tree based method to better leverage correlation of our features.
 
 # Select k most relevant features
 # Play around with K to see which number of features is best
@@ -50,19 +75,23 @@ selected_features_rfe = selected_features_rfe.values
 # Criterion mae is used.
 # tic = datetime.datetime.now()
 # rf = RandomForestRegressor(n_estimators=10, criterion='mae', max_depth=7, verbose=2, n_jobs=-1)
-# rf.fit(X, y)
+# rf.fit(X_scaled, y)
 # toc = datetime.datetime.now()
 # print(toc-tic)
 # feat_imp = pd.DataFrame(X.columns, columns=['feat_name'])
 # feat_imp['imp'] = rf.feature_importances_
-# feat_imp.to_csv("rf_feat_importance.csv")
-feat_imp = pd.read_csv("regression_results_and_plots/rf_feat_importance.csv")
+# feat_imp.to_csv("regression_results_and_plots/rf_feat_scaled_importance.csv")
+feat_imp = pd.read_csv("regression_results_and_plots/rf_feat_scaled_importance.csv")
 feat_imp.sort_values(by='imp', ascending=False, inplace=True)
 
 plt.plot(feat_imp.imp.values.cumsum())
 plt.grid()
-# plt.savefig("regression_results_and_plots/cumulated feature importance random forest")
+plt.savefig("regression_results_and_plots/cumulated scaled-feature importance random forest")
 plt.show()
+
+# 25 features keep 90% of the feature importance
+# 50 features keep 97% of the feature importance
+# 75 features keep 99% of the feature importance
 
 plt.plot(feat_imp.imp.values[25:].cumsum())
 plt.grid()
@@ -70,7 +99,18 @@ plt.show()
 
 selected_features_rf_50 = feat_imp.feat_name.values[:50]
 selected_features_rf_25 = feat_imp.feat_name.values[:25]
-
+# selected_features_rf_25:
+# 'sensor11_diff_lag_20', 'sensor11_rolling_mean_derivative_20',
+#        'sensor2_rolling_max_20', 'sensor11_rolling_sum_of_changes_20',
+#        'sensor2', 'sensor9_diff_lag_20',
+#        'sensor14_rolling_sum_of_changes_20', 'sensor9_delta_lag_20',
+#        'sensor13_rolling_mean_derivative_20', 'sensor20_log',
+#        'sensor4_rolling_max_20', 'sensor13_diff_lag_20', 'sensor17_log',
+#        'sensor2_log', 'sensor4_log', 'sensor21_log', 'sensor7_log',
+#        'sensor17', 'sensor4', 'sensor9_rolling_mean_derivative_20',
+#        'sensor4_rolling_mean_derivative_20', 'sensor7_rolling_min_20',
+#        'sensor12_rolling_sum_of_changes_20', 'sensor3', 'sensor20'],
+#       dtype=object)
 #
 #############
 #######################################################################################################
@@ -79,33 +119,45 @@ selected_features_rf_25 = feat_imp.feat_name.values[:25]
 ############
 #
 
-# lin_reg = LinearRegression()
-# lin_reg.fit(X, y)
-#
-# y_pred_lm = lin_reg.predict(X_test)
-# print('Linear Regression',
-#       mean_absolute_error(y_test, y_pred_lm), mean_squared_error(y_test, y_pred_lm))
-# # Linear Regression 37.2388022132974 2286.8191973408284
-#
-#
-# # Train LinearRegression on RFE features
-# lin_reg = LinearRegression()
-# lin_reg.fit(X[selected_features_rfe], y)
-# y_pred_lm = lin_reg.predict(X_test[selected_features_rfe])
-# pd.DataFrame(y_pred_lm).to_csv("regression_results_and_plots/y_pred_lm.csv")
-y_pred_lm = pd.read_csv("regression_results_and_plots/y_pred_lm.csv")['0']
+#       #     #
+#       ##   ##
+#       # # # #
+#####   #  #  #
 
-print('Linear Regression with RFE feature selection',
+lin_reg = LinearRegression()
+lin_reg.fit(X_scaled, y)  # No possibility to fit on MAE. Only OLS.
+y_pred_lm = lin_reg.predict(X_test_scaled)
+print('Linear Regression',
       mean_absolute_error(y_test, y_pred_lm), mean_squared_error(y_test, y_pred_lm))
-# Linear Regression with RFE feature selection 14.142734642572869 319.7344583322316
+# Linear Regression 14.186551385453248 320.8556628639239
 
-
-# cv_scores_lin_reg = cross_val_score(lin_reg, X[selected_features_rfe], y, scoring='neg_mean_absolute_error', cv=5, n_jobs=-1)
-# cv_scores_lin_reg = array([-12.17061674, -11.10523918, -12.81084418, -12.70238884, -12.9531474 ])
-# --> Overfitting
-
-# plot_error_repartition(y_test, y_pred_lm, model_name='Linear Regression', save=True)
+cross_val_score(lin_reg, X_scaled, y, scoring='neg_mean_absolute_error', cv=5, n_jobs=-1)
+# array([-12.16980952, -11.17104961, -12.59957027, -12.58221051, -12.94705154])
+cross_val_score(lin_reg, X_scaled, y, scoring='neg_mean_squared_error', cv=5, n_jobs=-1)
+# array([-240.76934135, -199.44898308, -268.04097642, -273.95922803, -274.64024234])
 residual_quadra_plot(np.array(y_test), np.array(y_pred_lm), model_name='Linear Regression', save=False)
+
+# lin_reg.fit(X_scaled[selected_features_rf_50], y)
+y_pred_lm_50 = lin_reg.predict(X_test_scaled[selected_features_rf_50])
+print('Linear Regression',
+      mean_absolute_error(y_test, y_pred_lm_50), mean_squared_error(y_test, y_pred_lm_50))
+# Linear Regression 15.62867085192837 386.20531142859625
+lin_reg = LinearRegression()
+cross_val_score(lin_reg, X_scaled[selected_features_rf_50], y, scoring='neg_mean_absolute_error', cv=2, n_jobs=-1)
+# array([-13.74193944, -15.29926381])
+# Still overfitt
+cross_val_score(lin_reg, X_scaled[selected_features_rf_50], y, scoring='neg_mean_absolute_error',
+                cv=split_engines_for_cv(train_df, 5), n_jobs=-1)
+
+
+
+lin_reg.fit(X_scaled[selected_features_rf_25], y)
+y_pred_lm_25 = lin_reg.predict(X_test_scaled[selected_features_rf_25])
+print('Linear Regression',
+      mean_absolute_error(y_test, y_pred_lm_25), mean_squared_error(y_test, y_pred_lm_25))
+# 16.510952094718043 423.09788009478444
+cross_val_score(lin_reg, X_scaled[selected_features_rf_25], y, scoring='neg_mean_absolute_error', cv=5, n_jobs=-1)
+# array([-14.6766886 , -16.33929278])
 
 #####  #   #
 ##     ##  #
@@ -116,7 +168,7 @@ residual_quadra_plot(np.array(y_test), np.array(y_pred_lm), model_name='Linear R
 # Train ElasticNet regression:
 # l1_ratio = [0.1, 0.3, 0.7, 0.9, 0.99, 1]
 # normalize = [True, False]
-# n_jobs = 3
+# n_jobs = -1
 # max_iter = 100000
 # cv = 5
 # lm_elasticCV = ElasticNetCV(l1_ratio=l1_ratio,
@@ -124,15 +176,15 @@ residual_quadra_plot(np.array(y_test), np.array(y_pred_lm), model_name='Linear R
 #                           n_jobs=n_jobs,
 #                           max_iter=max_iter,
 #                           cv=cv,
-#                           verbose=2)
-# lm_elasticCV.fit(X, y)
-# alpha = lm_elasticCV.alpha_
-# # 0.00031142146133688865
+#                           verbose=1)
+# lm_elasticCV.fit(X_scaled, y)  # Only MSE Loss available.
+# lm_elasticCV.alpha_
+# 0.000311421461336888
 #
-# l1_ratio = lm_elasticCV.l1_ratio_
+# lm_elasticCV.l1_ratio_
 # 1.0
-# y_pred_lm_elasticCV = lm_elasticCV.predict(X_test)
-# print('ElasticNet with selected_features_rfe',
+# y_pred_lm_elasticCV = lm_elasticCV.predict(X_test_scaled)
+# print('ElasticNetCV',
 #       mean_absolute_error(y_test, y_pred_lm_elasticCV), mean_squared_error(y_test, y_pred_lm_elasticCV))
 # 16.789624747721206 441.04810419595884
 #
@@ -141,42 +193,30 @@ residual_quadra_plot(np.array(y_test), np.array(y_pred_lm), model_name='Linear R
 #  'max_iter': 50000}
 #
 # lm_elastic = ElasticNet().set_params(**lm_elastic_params)
-# lm_elastic.fit(X, y)
+# lm_elastic.fit(X_scaled, y)    # Only MSE Loss available.
 #
-# y_pred_lm_elastic = lm_elastic.predict(X_test)
+# y_pred_lm_elastic = lm_elastic.predict(X_test_scaled)
 # pd.DataFrame(y_pred_lm_elastic).to_csv("regression_results_and_plots/y_pred_lm_elastic.csv")
 y_pred_lm_elastic = pd.read_csv("regression_results_and_plots/y_pred_lm_elastic.csv")['0']
 print('ElasticNet',
       mean_absolute_error(y_test, y_pred_lm_elastic), mean_squared_error(y_test, y_pred_lm_elastic))
-# ElasticNet 16.411964629811976 430.32060553752626
+# ElasticNet 16.143727696448916 420.01787048073106
 residual_quadra_plot(np.array(y_test), np.array(y_pred_lm_elastic), model_name='ElasticNet', save=False)
 
 
-# lm_elastic_rfe.fit(X[selected_features_rfe], y)
-# y_pred_lm_elastic_rfe = lm_elastic_rfe.predict(X_test[selected_features_rfe])
-# print('ElasticNet with selected_features_rfe',
-#       mean_absolute_error(y_test, y_pred_lm_elastic_rfe), mean_squared_error(y_test, y_pred_lm_elastic_rfe))
-# ElasticNet with selected_features_rfe 16.413186887370703 432.07932720282804
-
-# plot_error_repartition(y_test, y_pred_lm_elastic, model_name='ElasticNet', save=True)
-# residual_quadra_plot(y_test, y_pred_lm_elastic)
-# cv_scores_elasticNet = cross_val_score(lm_elastic, X[selected_features_rfe], y, scoring='neg_mean_absolute_error', cv=5, n_jobs=-1)
-# cv_scores_elasticNet : array([-13.44161491, -12.67828467, -15.41808165, -15.1937048 , -15.53008139])
-# --> No more Overfitting
-
 # Tye to fit on log of time
 # lm_elastic_log = ElasticNet().set_params(**lm_elastic_params)
-# lm_elastic_log.fit(X, y.apply(lambda x: np.log(x+1)))
-
-# y_pred_lm_elastic_log = lm_elastic_log.predict(X_test)
+# lm_elastic_log.fit(X_scaled, y.apply(lambda x: np.log(x+1)))
+#
+# y_pred_lm_elastic_log = lm_elastic_log.predict(X_test_scaled)
 # y_pred_lm_elastic_log = np.exp(y_pred_lm_elastic_log)-1
 # pd.DataFrame(y_pred_lm_elastic_log).to_csv("regression_results_and_plots/y_pred_lm_elastic_log.csv")
 y_pred_lm_elastic_log = pd.read_csv("regression_results_and_plots/y_pred_lm_elastic_log.csv")['0']
 
 print('ElasticNet with selected_features_rfe on log(time_to_failure + 1)',
       mean_absolute_error(y_test, y_pred_lm_elastic_log), mean_squared_error(y_test, y_pred_lm_elastic_log))
-# 17.235873705938257 505.43806961537985
-residual_quadra_plot(np.array(y_test), np.array(y_pred_lm_elastic_log), model_name='ElasticNet on log(RUL+1)', save=False)
+# 18.58649892751042 574.5034165674568
+residual_quadra_plot(np.array(y_test), np.array(y_pred_lm_elastic_log), model_name='ElasticNet on log(RUL+1)')
 
 
 #######################################
@@ -188,29 +228,28 @@ residual_quadra_plot(np.array(y_test), np.array(y_pred_lm_elastic_log), model_na
 # Extremely slow
 
 # Grid Search RandomForestRegressor on 50 most important features
-# rf_params = {'n_estimators': [10, 30, 100],
+# rf_params = {'n_estimators': [30],
 #              'criterion': ['mae'],
-#              'max_depth': [5, 7],
+#              'max_depth': [4, 7],
 #              'n_jobs': [-1],
-#              'min_impurity_decrease': [0, 0.1]}
+#              'min_impurity_decrease': [0]}
 #
 #
 # grid_search_rf = GridSearchCV(RandomForestRegressor(),
 #                               rf_params,
-#                               scoring=['neg_mean_absolute_error', 'neg_mean_squared_error'],
-#                               refit='neg_mean_absolute_error',
-#                               cv=5,
+#                               scoring='neg_mean_absolute_error',
+#                               cv=3,
 #                               verbose=2,
 #                               n_jobs=-1)
-
-# grid_search_rf.fit(X[selected_features_rf_50], y)
+#
+# grid_search_rf.fit(X_scaled[selected_features_rf_50], y)
 #
 # grid_searchCV_results_rf = grid_search_rf.cv_results_
 #
 # grid_searchCV_results_rf = pd.DataFrame(grid_searchCV_results_rf)
-# grid_searchCV_results_rf.to_csv("grid_searchCV_results_rf.csv")
+# grid_searchCV_results_rf.to_csv("regression_results_and_plots/grid_searchCV_results_rf_3.csv")
 
-grid_searchCV_results_rf = pd.read_csv("regression_results_and_plots/grid_searchCV_results_rf.csv")
+grid_searchCV_results_rf = pd.read_csv("regression_results_and_plots/grid_searchCV_results_rf_3.csv")
 grid_searchCV_results_rf = pd.DataFrame(grid_searchCV_results_rf)
 grid_searchCV_results_rf
 
@@ -234,18 +273,20 @@ render_mpl_table(grid_searchCV_results_rf, header_columns=0, col_width=2.1)
 plt.show()
 
 # Using best parameters for MAE and Overfitting:
-# rf = RandomForestRegressor(n_estimators=30, criterion='mae',
-#                            max_depth=7, n_jobs=-1, min_impurity_decrease=0, verbose=2)
-# rf.fit(X[selected_features_rf_50], y)
-#
-# X_test, y_test = df_test.drop('time_to_failure', axis=1), df_test.time_to_failure
-# y_pred_rf = rf.predict(X_test[selected_features_rf_50])
-# pd.DataFrame(y_pred_rf).to_csv("y_pred_rf.csv")
-y_pred_rf = pd.read_csv("regression_results_and_plots/y_pred_rf.csv")['0']
+rf = RandomForestRegressor(n_estimators=30, criterion='mae',
+                           max_depth=7, n_jobs=-1, min_impurity_decrease=0, verbose=2)
+rf.fit(X_scaled[selected_features_rf_50], y)
+
+y_pred_rf = rf.predict(X_test_scaled[selected_features_rf_50])
+pd.DataFrame(y_pred_rf).to_csv("regression_results_and_plots/y_pred_rf_30_7.csv")
+y_pred_rf = pd.read_csv("regression_results_and_plots/y_pred_rf_30_7.csv")['0']
 
 print('RandomForest Regressor with 50 Best features',
       mean_absolute_error(y_test, y_pred_rf), mean_squared_error(y_test, y_pred_rf))
-# 14.278511610897787 396.8144270128604
+# 50 best features, (n_estimators=30, max_depth=7) 14.278511610897787 396.8144270128604
+
+cv_scores_lin_reg = cross_val_score(rf, X_scaled, y, scoring='neg_mean_absolute_error', cv=5, n_jobs=-1)
+
 
 plot_error_repartition(y_test, y_pred_rf, model_name='RandomForest', save=False)
 residual_quadra_plot(np.array(y_test), np.array(y_pred_rf), model_name="Random Forest", save=False)
@@ -367,15 +408,15 @@ y_pred_xgb.to_csv("regression_results_and_plots/y_pred_xgb_5_obj.csv")
 # XGB with reg:squarederror        12.44 256
 
 #
-# sample_weights = np.where(
-#     y <= 10, 100*10, np.where(
-#         y <= 20, 25*5, np.where(
-#             y <= 30, 10*4, np.where(
-#                 y <= 40, 7*3, np.where(
-#                     y <= 50, 2, np.where(
-#                         y <= 100, 1, 0.1
-#                     ))))))
-#
+sample_weights = np.where(
+    y <= 10, 100*10, np.where(
+        y <= 20, 25*5, np.where(
+            y <= 30, 10*4, np.where(
+                y <= 40, 7*3, np.where(
+                    y <= 50, 2, np.where(
+                        y <= 100, 1, 0.1
+                    ))))))
+
 # xgb_reg_weighted_tweedie = xgb.XGBRegressor(max_depth=3, objective='reg:tweedie', n_estimators=200, n_jobs=-1)
 # xgb_reg_weighted_tweedie.fit(X, y, verbose=2, sample_weight=sample_weights)
 # y_pred_weighted_tweedie = xgb_reg_weighted_tweedie.predict(X_test)
@@ -385,10 +426,10 @@ print("XGB weighted tweedie", mean_absolute_error(y_test, y_pred_weighted_tweedi
 # XGB weighted tweedie 30.674529933824818 1384.2559447988936
 residual_quadra_plot(y_test, y_pred_weighted_tweedie, model_name="XGB weighted tweedie", save=True)
 
-# xgb_reg_weighted_squarederror = xgb.XGBRegressor(max_depth=3, objective='reg:squarederror', n_estimators=200, n_jobs=-1)
-# xgb_reg_weighted_squarederror.fit(X, y, verbose=2, sample_weight=sample_weights)
-# y_pred_weighted_squarederror = xgb_reg_weighted_squarederror.predict(X_test)
-# pd.DataFrame(y_pred_weighted_squarederror).to_csv("regression_results_and_plots/y_pred_weighted_squarederror.csv")
+xgb_reg_weighted_squarederror = xgb.XGBRegressor(max_depth=3, objective='reg:squarederror', n_estimators=200, n_jobs=-1)
+xgb_reg_weighted_squarederror.fit(X, y, verbose=2, sample_weight=sample_weights)
+y_pred_weighted_squarederror = xgb_reg_weighted_squarederror.predict(X_test)
+pd.DataFrame(y_pred_weighted_squarederror).to_csv("regression_results_and_plots/y_pred_weighted_squarederror.csv")
 y_pred_weighted_squarederror = np.array(pd.read_csv("regression_results_and_plots/y_pred_weighted_squarederror.csv")['0'])
 print("XGB weighted squarederror", mean_absolute_error(y_test, y_pred_weighted_squarederror), mean_squared_error(y_test, y_pred_weighted_squarederror))
 # XGB weighted sqarederror 16.108829582672623 436.2950446098589
@@ -404,20 +445,30 @@ residual_quadra_plot(y_test, y_pred_weighted_squarederror, model_name="XGB weigh
 #     xgb_reg_weighted, X, y, scoring='neg_mean_absolute_error', cv=5, n_jobs=-1, verbose=2)
 # # cv_scores_xgb_50_features = array([ -9.04913295,  -9.29853543,  -9.3275443 , -11.59707833, -11.53495859])
 #
-# plt.plot(-np.sort(-xgb_reg_weighted.feature_importances_).cumsum())
-# plt.show()
-# # --> Let's keep the 100 most important features for XG boost, who account for more than 99% of the importance.
-# selected_features_xgb_100 = pd.DataFrame(data=X.columns.values, columns=['feat_names'])
-# selected_features_xgb_100['feat_imp'] = xgb_reg_weighted.feature_importances_
-# selected_features_xgb_100.sort_values(by='feat_imp')
-# selected_features_xgb_100 = selected_features_xgb_100.feat_names[:100]
-# selected_features_xgb_75 = selected_features_xgb_100[:75]
-#
-# cv_scores_xgb = cross_val_score(
-#     xgb_reg_weighted, X[selected_features_xgb_100], y, scoring='neg_mean_absolute_error', cv=2, n_jobs=-1, verbose=2)
-# # [ -9.58242875,  -9.80860827,  -9.38500866, -12.01706412, -11.58635128])
-#
-# cv_scores_xgb = cross_val_score(
-#     xgb_reg_weighted, X[selected_features_xgb_75], y, scoring='neg_mean_absolute_error', cv=2, n_jobs=-1, verbose=2)
+# xgb_reg_weighted_squarederror_feature_importances = pd.DataFrame(xgb_reg_weighted_squarederror.feature_importances_)
+# xgb_reg_weighted_squarederror_feature_importances.to_csv("xgb_reg_weighted_squarederror_feature_importances.csv")
+xgb_reg_weighted_squarederror_feature_importances = pd.read_csv("xgb_reg_weighted_squarederror_feature_importances.csv")['0']
+plt.plot(-np.sort(-xgb_reg_weighted_squarederror.feature_importances_).cumsum())
+plt.title('feature importance for xgb_reg_weighted_squarederror')
+# plt.savefig("feature importance for xgb_reg_weighted_squarederror")
+plt.show()
+# --> Let's keep the 100 most important features for XG boost, who account for more than 99% of the importance.
+selected_features_xgb_100 = pd.DataFrame(data=X.columns.values, columns=['feat_names'])
+selected_features_xgb_100['feat_imp'] = xgb_reg_weighted_squarederror_feature_importances
+selected_features_xgb_100.sort_values(by='feat_imp')
+selected_features_xgb_100 = selected_features_xgb_100.feat_names[:100]
+selected_features_xgb_75 = selected_features_xgb_100[:75]
+selected_features_xgb_50 = selected_features_xgb_100[:50]
 
+cv_scores_xgb = cross_val_score(
+    xgb_reg_weighted_squarederror, X[selected_features_xgb_100], y, scoring='neg_mean_absolute_error', cv=2, n_jobs=-1, verbose=2)
+# [ -9.58242875,  -9.80860827,  -9.38500866, -12.01706412, -11.58635128])
+# array([-10.62010572, -12.91100659])
 
+cv_scores_xgb = cross_val_score(
+    xgb_reg_weighted_squarederror, X[selected_features_xgb_75], y, scoring='neg_mean_absolute_error', cv=2, n_jobs=-1, verbose=2)
+# Out[31]: array([-10.61753812, -13.00911618])
+
+cv_scores_xgb = cross_val_score(
+    xgb_reg_weighted_squarederror, X[selected_features_xgb_50], y, scoring='neg_mean_absolute_error', cv=2, n_jobs=-1, verbose=2)
+#Out[33]: array([-10.53843629, -12.67522863])
